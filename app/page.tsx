@@ -21,6 +21,7 @@ type PanelMode = "keys" | "loop" | "fx" | "step" | null;
 type LoopStatus = "idle" | "recording" | "playing";
 type LoopEvent = { type: "on" | "off"; note: number; velocity: number; at: number };
 type Mood = { name: string; english: string; description: string; colors: readonly (readonly [number, number, number])[] };
+type ScalePreset = { name: string; short: string; intervals: readonly number[]; colors: readonly (readonly [number, number, number])[] };
 
 const NOTES = Array.from({ length: 36 }, (_, index) => 48 + index);
 const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
@@ -44,6 +45,18 @@ const MOODS: readonly Mood[] = [
 const CHORD_INTERVALS: Record<number, readonly [number, number]> = {
   0: [4, 7], 2: [3, 7], 4: [3, 7], 5: [4, 7], 7: [4, 7], 9: [3, 7], 11: [3, 6],
 };
+
+const SCALE_PRESETS: readonly ScalePreset[] = [
+  { name: "蓝调", short: "BLUES", intervals: [0, 3, 5, 6, 7, 10], colors: [[26, 80, 156], [34, 142, 210], [80, 210, 232], [116, 98, 220], [44, 174, 200], [120, 210, 255]] },
+  { name: "中国风", short: "CHINA", intervals: [0, 2, 4, 7, 9], colors: [[196, 36, 48], [224, 132, 38], [246, 202, 92], [44, 144, 108], [84, 186, 146]] },
+  { name: "弗拉明戈", short: "FLAMENCO", intervals: [0, 1, 4, 5, 7, 8, 10], colors: [[150, 10, 26], [232, 42, 28], [255, 104, 24], [255, 184, 52], [190, 26, 48], [242, 78, 42], [255, 214, 100]] },
+  { name: "爵士", short: "JAZZ", intervals: [0, 2, 4, 5, 7, 9, 10], colors: [[76, 50, 172], [118, 74, 220], [66, 180, 212], [50, 210, 170], [170, 98, 230], [94, 204, 238], [206, 152, 255]] },
+  { name: "多利亚", short: "DORIAN", intervals: [0, 2, 3, 5, 7, 9, 10], colors: [[24, 104, 112], [35, 156, 154], [56, 202, 172], [72, 134, 164], [44, 190, 154], [112, 222, 184], [70, 158, 190]] },
+  { name: "阿拉伯", short: "ARABIC", intervals: [0, 1, 4, 5, 7, 8, 11], colors: [[78, 32, 126], [132, 56, 150], [218, 132, 36], [250, 190, 58], [104, 46, 144], [232, 158, 48], [255, 220, 112]] },
+  { name: "和风", short: "JAPAN", intervals: [0, 1, 5, 7, 8], colors: [[178, 54, 104], [238, 112, 152], [255, 190, 202], [232, 232, 246], [174, 124, 212]] },
+  { name: "大调", short: "MAJOR", intervals: [0, 2, 4, 5, 7, 9, 11], colors: [[38, 124, 210], [62, 166, 228], [82, 204, 220], [72, 188, 158], [100, 176, 242], [130, 214, 220], [164, 224, 250]] },
+  { name: "小调", short: "MINOR", intervals: [0, 2, 3, 5, 7, 8, 10], colors: [[82, 42, 142], [114, 60, 180], [152, 76, 190], [92, 106, 202], [132, 82, 206], [186, 98, 190], [124, 118, 224]] },
+] as const;
 
 function noteLabel(note: number) {
   return `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
@@ -81,6 +94,13 @@ function rgbFrame(key: number, rgb: readonly number[]) {
   ];
 }
 
+function rgbGroupsFrame(groups: { rgb: readonly number[]; keys: number[] }[]) {
+  const body = groups.flatMap(({ rgb, keys }) => [
+    ...encodeChannel(rgb[0]), ...encodeChannel(rgb[1]), ...encodeChannel(rgb[2]), keys.length, ...keys,
+  ]);
+  return [...PK_HEADER, 0x15, groups.length, ...body, 0xf7];
+}
+
 function partyKeysAllOff(mode: LightMode) {
   if (mode === "palette71") return [...PK_HEADER, 0x71, 0x00, 0xf7];
   return [
@@ -104,6 +124,7 @@ class PianoEngine {
   delayNode: DelayNode | null = null;
   delayWet: GainNode | null = null;
   delayFeedback: GainNode | null = null;
+  analyser: AnalyserNode | null = null;
   fallbackWave: PeriodicWave | null = null;
   buffers: AudioBuffer[][] | null = null;
   loading: Promise<void> | null = null;
@@ -138,7 +159,11 @@ class PianoEngine {
     this.keysBus.connect(this.toneFilter);
     this.toneFilter.connect(this.master);
     this.master.connect(this.compressor);
-    this.compressor.connect(context.destination);
+    this.analyser = context.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.86;
+    this.compressor.connect(this.analyser);
+    this.analyser.connect(context.destination);
 
     const impulse = context.createBuffer(2, Math.floor(context.sampleRate * 1.9), context.sampleRate);
     for (let channel = 0; channel < 2; channel += 1) {
@@ -314,23 +339,115 @@ function Knob({ label, value, color, onChange }: { label: string; value: number;
   );
 }
 
-function WaveDisplay({ activeNotes, bpm, mood, keyMode, panelContent }: {
+function LiveWaveform({ engineRef, mood, activity }: { engineRef: React.RefObject<PianoEngine | null>; mood: Mood; activity: number }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    let frame = 0;
+    let width = 0;
+    let height = 0;
+    const points = 180;
+    const smooth = new Float32Array(points);
+    const previous = new Float32Array(points);
+    const audioData = new Float32Array(2048);
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    resize();
+
+    const rgb = mood.colors[2];
+    const rgb2 = mood.colors[3];
+    const render = (stamp: number) => {
+      const analyser = engineRef.current?.analyser;
+      let energy = 0;
+      if (analyser) {
+        analyser.getFloatTimeDomainData(audioData);
+        for (let index = 0; index < audioData.length; index += 16) energy += Math.abs(audioData[index]);
+        energy /= audioData.length / 16;
+      }
+      previous.set(smooth);
+      const breathing = 0.055 + Math.sin(stamp * 0.0008) * 0.012;
+      for (let index = 0; index < points; index += 1) {
+        const audioIndex = Math.floor((index / (points - 1)) * (audioData.length - 1));
+        const live = energy > 0.002 ? audioData[audioIndex] * Math.min(1.25, 0.78 + energy * 5) : 0;
+        const idle = Math.sin(index * 0.19 + stamp * 0.0032) * breathing + Math.sin(index * 0.063 - stamp * 0.0017) * breathing * 0.52;
+        const target = live + idle + Math.sin(index * 0.31 + stamp * 0.004) * Math.min(0.06, activity * 0.008);
+        smooth[index] += (target - smooth[index]) * (energy > 0.002 ? 0.34 : 0.075);
+      }
+
+      context.clearRect(0, 0, width, height);
+      context.save();
+      context.strokeStyle = "rgba(255,255,255,.055)";
+      context.lineWidth = 1;
+      for (let index = 1; index < 5; index += 1) {
+        const y = (height / 5) * index;
+        context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+      }
+      for (let index = 1; index < 9; index += 1) {
+        const x = (width / 9) * index;
+        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke();
+      }
+      context.restore();
+
+      const drawPath = (values: Float32Array, alpha: number, lineWidth: number, offset = 0) => {
+        const gradient = context.createLinearGradient(0, 0, width, 0);
+        gradient.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`);
+        gradient.addColorStop(0.52, `rgba(235,245,255,${Math.min(1, alpha + 0.16)})`);
+        gradient.addColorStop(1, `rgba(${rgb2[0]},${rgb2[1]},${rgb2[2]},${alpha})`);
+        context.beginPath();
+        values.forEach((value, index) => {
+          const x = (index / (points - 1)) * width;
+          const y = height / 2 + value * height * 0.72 + offset;
+          if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+        });
+        context.strokeStyle = gradient;
+        context.lineWidth = lineWidth;
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.shadowColor = `rgb(${rgb.join(",")})`;
+        context.shadowBlur = lineWidth > 2 ? 14 : 7;
+        context.stroke();
+        context.shadowBlur = 0;
+      };
+      drawPath(previous, 0.2, 1.1, 4);
+      drawPath(smooth, 0.92, 2.15);
+      drawPath(smooth, 0.17, 7.5);
+      frame = requestAnimationFrame(render);
+    };
+    frame = requestAnimationFrame(render);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [activity, engineRef, mood]);
+
+  return <canvas ref={canvasRef} className="live-waveform" aria-label="实时音频波形" />;
+}
+
+function WaveDisplay({ activeNotes, bpm, mood, keyMode, panelContent, engineRef }: {
   activeNotes: Set<number>;
   bpm: number;
   mood: Mood;
   keyMode: KeyMode;
   panelContent?: React.ReactNode;
+  engineRef: React.RefObject<PianoEngine | null>;
 }) {
   return (
     <div className="display" aria-label="Audio monitor">
       <div className="display-head"><span><i /> PARTYKEYS LAB</span><span>{bpm} <b>●</b></span></div>
       <div className="scope">
         <div className="rings"><i /><i /><i /><span>{activeNotes.size || "~"}</span></div>
-        <div className="wave-line">
-          {Array.from({ length: 16 }, (_, index) => (
-            <i key={index} style={{ "--wave": `${(Math.sin(index * 1.8 + activeNotes.size) * (activeNotes.size ? 12 : 4)).toFixed(3)}deg` } as React.CSSProperties} />
-          ))}
-        </div>
+        <LiveWaveform engineRef={engineRef} mood={mood} activity={activeNotes.size} />
       </div>
       <div className="display-foot">
         <span style={{ color: `rgb(${mood.colors[2].join(",")})` }}>MOOD<br /><b>{mood.english}</b></span>
@@ -350,6 +467,9 @@ export default function Home() {
   const profileRef = useRef<DeviceProfile>(null);
   const lightModeRef = useRef<LightMode>("palette71");
   const moodRef = useRef(0);
+  const guideColorsRef = useRef(new Map<number, readonly number[]>());
+  const guideSlotsRef = useRef(new Map<number, number>());
+  const selectedScaleRef = useRef<number | null>(null);
   const heldRef = useRef(new Set<number>());
   const heldCountsRef = useRef(new Map<number, number>());
   const generatedNotesRef = useRef(new Map<string, number[]>());
@@ -369,7 +489,7 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [moodIndex, setMoodIndex] = useState(0);
   const [keyMode, setKeyMode] = useState<KeyMode>("poly");
-  const [panel, setPanel] = useState<PanelMode>("keys");
+  const [panel, setPanel] = useState<PanelMode>(null);
   const [loopStatus, setLoopStatus] = useState<LoopStatus>("idle");
   const [loopProgress, setLoopProgress] = useState(0);
   const [loopEvents, setLoopEvents] = useState<LoopEvent[]>([]);
@@ -379,6 +499,7 @@ export default function Home() {
   const [stepMode, setStepMode] = useState<"metronome" | "sequencer">("metronome");
   const [stepPattern, setStepPattern] = useState([true, false, false, false, true, false, false, false]);
   const [activeStep, setActiveStep] = useState(-1);
+  const [selectedScale, setSelectedScale] = useState<number | null>(null);
 
   const send = useCallback((frame: number[]) => {
     if (!outputRef.current || frame.length > 256) return;
@@ -411,18 +532,56 @@ export default function Home() {
     if (!profile || !outputRef.current) return;
     if (profile === "partykeys36" && note >= 48 && note <= 83) {
       if (lightModeRef.current === "rgb15") {
-        const color = on ? MOODS[moodRef.current].colors[Math.min(3, Math.floor(Math.max(1, velocity) / 32))] : [0, 0, 0];
+        const color = on ? MOODS[moodRef.current].colors[Math.min(3, Math.floor(Math.max(1, velocity) / 32))] : guideColorsRef.current.get(note) || [0, 0, 0];
         send(rgbFrame(note - 48, color));
       } else {
         const moodPalettes = [[3, 4, 5, 6], [7, 6, 5, 4], [1, 2, 3, 12], [8, 9, 10, 12]];
         const colorId = moodPalettes[moodRef.current][Math.min(3, Math.floor(Math.max(1, velocity) / 32))];
-        send([...PK_HEADER, 0x71, 0x01, note, on ? colorId : 0x00, 0xf7]);
+        send([...PK_HEADER, 0x71, 0x01, note, on ? colorId : guideSlotsRef.current.get(note) || 0x00, 0xf7]);
       }
     }
     if (profile === "popupiano29" && note >= 48 && note <= 76) {
-      send([0xf0, 0x03, 0x20, 0x01, note - 48, on ? 0x01 : 0x00, 0xf7]);
+      send([0xf0, 0x03, 0x20, 0x01, note - 48, on ? 0x01 : guideSlotsRef.current.get(note) || 0x00, 0xf7]);
     }
   }, [send]);
+
+  const applyScaleGuide = useCallback((index: number) => {
+    const preset = SCALE_PRESETS[index];
+    const colors = new Map<number, readonly number[]>();
+    const slots = new Map<number, number>();
+    NOTES.forEach((note) => {
+      const degree = preset.intervals.indexOf(note % 12);
+      if (degree < 0) return;
+      colors.set(note, preset.colors[degree % preset.colors.length]);
+      slots.set(note, 1 + degree);
+    });
+    guideColorsRef.current = colors;
+    guideSlotsRef.current = slots;
+    selectedScaleRef.current = index;
+    setSelectedScale(index);
+    allLightsOff();
+
+    if (profileRef.current === "partykeys36") {
+      if (lightModeRef.current === "rgb15") {
+        const groups = preset.colors.map((rgb, colorIndex) => ({
+          rgb,
+          keys: [...colors.entries()].filter(([, value]) => value === rgb).map(([note]) => note - 48),
+        })).filter((group) => group.keys.length);
+        const frame = rgbGroupsFrame(groups);
+        if (frame.length <= 256) send(frame);
+      } else {
+        const pairs = [...slots.entries()].flatMap(([note, slot]) => [note, Math.min(12, 1 + Math.round(((slot - 1) / Math.max(1, preset.intervals.length - 1)) * 11))]);
+        send([...PK_HEADER, 0x71, pairs.length / 2, ...pairs, 0xf7]);
+      }
+    }
+    if (profileRef.current === "popupiano29") {
+      const palette = preset.colors.flatMap(([r, g, b]) => [Math.min(127, Math.round(r / 2)), Math.min(127, Math.round(g / 2)), Math.min(127, Math.round(b / 2))]);
+      send([0xf0, 0x03, 0x1e, preset.colors.length, 1, ...palette, 0xf7]);
+      const pairs = Array.from({ length: 29 }, (_, lamp) => [lamp, slots.get(lamp + 48) || 0]).flat();
+      send([0xf0, 0x03, 0x20, 29, ...pairs, 0xf7]);
+    }
+    setStatusText(`${preset.name}音阶 · 对应键位与风格灯光已点亮`);
+  }, [allLightsOff, send]);
 
   const setNoteState = useCallback((note: number, on: boolean) => {
     const count = heldCountsRef.current.get(note) || 0;
@@ -540,6 +699,7 @@ export default function Home() {
     if (profile && output) {
       const mode = profile === "partykeys36" ? lightModeRef.current : "palette71";
       initLights(profile, mode);
+      if (selectedScaleRef.current != null) window.setTimeout(() => applyScaleGuide(selectedScaleRef.current!), 0);
       setConnection("connected");
       setDeviceName(output.name || (profile === "partykeys36" ? "PartyKeys 36" : "PopuPiano 29"));
       setStatusText("设备已连接 · 灯光与音色就绪");
@@ -553,7 +713,7 @@ export default function Home() {
       const isMidiBrowser = Boolean((window as any).webkit?.messageHandlers?.midiBridge && (window as any).__webMIDIBridge);
       setStatusText(isMidiBrowser ? "请在底部点“连接 MIDI 设备”完成蓝牙配对" : "请连接 USB/BLE MIDI，页面会自动发现");
     }
-  }, [initLights, parseMidiPacket]);
+  }, [applyScaleGuide, initLights, parseMidiPacket]);
 
   const connectMidi = useCallback(async () => {
     engineRef.current?.ensureAudio();
@@ -605,13 +765,19 @@ export default function Home() {
 
   useEffect(() => {
     lightModeRef.current = lightMode;
-    if (deviceProfile === "partykeys36") initLights(deviceProfile, lightMode);
-  }, [deviceProfile, initLights, lightMode]);
+    if (deviceProfile === "partykeys36") {
+      initLights(deviceProfile, lightMode);
+      if (selectedScaleRef.current != null) applyScaleGuide(selectedScaleRef.current);
+    }
+  }, [applyScaleGuide, deviceProfile, initLights, lightMode]);
 
   useEffect(() => {
     moodRef.current = moodIndex;
-    if (deviceProfile === "popupiano29") initLights(deviceProfile, "palette71");
-  }, [deviceProfile, initLights, moodIndex]);
+    if (deviceProfile === "popupiano29") {
+      initLights(deviceProfile, "palette71");
+      if (selectedScaleRef.current != null) applyScaleGuide(selectedScaleRef.current);
+    }
+  }, [applyScaleGuide, deviceProfile, initLights, moodIndex]);
 
   useEffect(() => {
     engineRef.current?.setVolume(volume / 100);
@@ -738,6 +904,16 @@ export default function Home() {
       return { note, left: `${(whitesBefore / WHITE_NOTES.length) * 100}%` };
     });
   }, []);
+  const scaleGuide = useMemo(() => {
+    const colors = new Map<number, string>();
+    if (selectedScale == null) return colors;
+    const preset = SCALE_PRESETS[selectedScale];
+    NOTES.forEach((note) => {
+      const degree = preset.intervals.indexOf(note % 12);
+      if (degree >= 0) colors.set(note, `rgb(${preset.colors[degree % preset.colors.length].join(",")})`);
+    });
+    return colors;
+  }, [selectedScale]);
 
   const mood = MOODS[moodIndex];
   const panelContent = panel ? (
@@ -785,6 +961,7 @@ export default function Home() {
           <button className={stepMode === "metronome" ? "panel-active" : ""} onClick={() => setStepMode("metronome")}><b>节拍提示</b><small>滴 · 答 · 答 · 答</small></button>
           <button className={stepMode === "sequencer" ? "panel-active" : ""} onClick={() => setStepMode("sequencer")}><b>八步音序</b><small>亮起的步会发声</small></button>
           <div><button onClick={() => setBpm((value) => Math.max(50, value - 2))}>−</button><strong>{bpm} BPM</strong><button onClick={() => setBpm((value) => Math.min(180, value + 2))}>＋</button></div>
+          <button className={`step-run ${playing ? "panel-active" : ""}`} onClick={() => setPlaying((value) => !value)}>{playing ? "暂停节拍" : "开始节拍"}</button>
         </div>
       )}
     </div>
@@ -816,7 +993,7 @@ export default function Home() {
             </div>
           </section>
 
-          <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} panelContent={panelContent} />
+          <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} panelContent={panelContent} engineRef={engineRef} />
 
           <div className="knob-row">
             <Knob label="TONE" value={tone} color="#61d9aa" onChange={setTone} />
@@ -849,19 +1026,19 @@ export default function Home() {
         </div>
 
         <div className="lower-deck">
-          <aside className="transport">
-            <div className="edit-row"><button onClick={() => setPanel("keys")}>⇧<small>KEY MODE</small></button><button onClick={() => setPanel("loop")}>▣<small>LOOP VIEW</small></button><button onClick={() => setPanel("fx")}>✂<small>FX RACK</small></button></div>
-            <div className="play-row"><button className={loopStatus === "recording" ? "recording" : ""} onClick={startLoopRecording}>◉<small>LOOP REC</small></button><button className={playing ? "playing" : ""} onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}<small>{playing ? "PAUSE" : stepMode === "metronome" ? "CLICK" : "STEP"}</small></button><button onClick={() => { setPlaying(false); stopLoop(false); engineRef.current?.releaseAll(); generatedNotesRef.current.clear(); heldRef.current.clear(); heldCountsRef.current.clear(); setActiveNotes(new Set()); allLightsOff(); }}>■<small>STOP ALL</small></button></div>
-            <div className="nav-row"><button>◀◀</button><button>▶▶</button><button onClick={() => setBpm((value) => value === 120 ? 96 : 120)}><span>shift</span><small>{bpm} BPM</small></button></div>
+          <aside className="transport scale-bank" aria-label="音阶灯光预设">
+            <div className="scale-grid">
+              {SCALE_PRESETS.map((preset, index) => <button key={preset.name} className={selectedScale === index ? "scale-selected" : ""} style={{ "--scale-a": `rgb(${preset.colors[0].join(",")})`, "--scale-b": `rgb(${preset.colors[preset.colors.length - 1].join(",")})` } as React.CSSProperties} onClick={() => applyScaleGuide(index)}><b>{preset.name}</b><small>{preset.short}</small></button>)}
+            </div>
           </aside>
 
           <div className="keyboard-wrap">
             <div className="keyboard" role="group" aria-label="36-key piano keyboard">
               <div className="white-keys">
-                {WHITE_NOTES.map((note) => <button key={note} aria-label={noteLabel(note)} className={activeNotes.has(note) ? "pressed" : ""} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)}><span>{note % 12 === 0 ? noteLabel(note) : ""}</span></button>)}
+                {WHITE_NOTES.map((note) => <button key={note} aria-label={noteLabel(note)} className={`${activeNotes.has(note) ? "pressed" : ""} ${scaleGuide.has(note) ? "guided" : ""}`} style={scaleGuide.has(note) ? { "--guide": scaleGuide.get(note) } as React.CSSProperties : undefined} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)}><span>{note % 12 === 0 ? noteLabel(note) : ""}</span></button>)}
               </div>
               <div className="black-keys">
-                {blackPositions.map(({ note, left }) => <button key={note} aria-label={noteLabel(note)} style={{ left }} className={activeNotes.has(note) ? "pressed" : ""} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)} />)}
+                {blackPositions.map(({ note, left }) => <button key={note} aria-label={noteLabel(note)} style={{ left, ...(scaleGuide.has(note) ? { "--guide": scaleGuide.get(note) } : {}) } as React.CSSProperties} className={`${activeNotes.has(note) ? "pressed" : ""} ${scaleGuide.has(note) ? "guided" : ""}`} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)} />)}
               </div>
             </div>
           </div>
