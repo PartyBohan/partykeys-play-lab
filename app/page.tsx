@@ -16,6 +16,11 @@ type MidiEvent = {
 
 type DeviceProfile = "partykeys36" | "popupiano29" | null;
 type LightMode = "palette71" | "rgb15";
+type KeyMode = "poly" | "mono" | "chord";
+type PanelMode = "keys" | "loop" | "fx" | "step" | null;
+type LoopStatus = "idle" | "recording" | "playing";
+type LoopEvent = { type: "on" | "off"; note: number; velocity: number; at: number };
+type Mood = { name: string; english: string; description: string; colors: readonly (readonly [number, number, number])[] };
 
 const NOTES = Array.from({ length: 36 }, (_, index) => 48 + index);
 const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
@@ -29,12 +34,16 @@ const SAMPLE_LAYERS = [
   { suffix: 16, maxVelocity: 127 },
 ];
 const PK_HEADER = [0xf0, 0x05, 0x30, 0x7f, 0x7f, 0x20, 0x00];
-const COLORS = [
-  [93, 214, 235],
-  [97, 226, 174],
-  [246, 178, 86],
-  [255, 111, 137],
+const MOODS: readonly Mood[] = [
+  { name: "温暖", english: "WARM", description: "琥珀 · 珊瑚 · 烛光", colors: [[130, 62, 42], [206, 100, 62], [246, 176, 82], [255, 220, 156]] },
+  { name: "复古", english: "AGED", description: "橄榄 · 黄铜 · 胶片", colors: [[62, 68, 43], [112, 112, 68], [174, 139, 72], [218, 188, 124]] },
+  { name: "热烈", english: "BLAZE", description: "猩红 · 橙焰 · 洋红", colors: [[144, 18, 48], [232, 48, 58], [255, 116, 42], [255, 72, 137]] },
+  { name: "宽容", english: "OPEN", description: "青蓝 · 天空 · 淡紫", colors: [[36, 106, 146], [72, 169, 196], [103, 139, 255], [188, 164, 255]] },
 ] as const;
+
+const CHORD_INTERVALS: Record<number, readonly [number, number]> = {
+  0: [4, 7], 2: [3, 7], 4: [3, 7], 5: [4, 7], 7: [4, 7], 9: [3, 7], 11: [3, 6],
+};
 
 function noteLabel(note: number) {
   return `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
@@ -90,6 +99,11 @@ class PianoEngine {
   master: GainNode | null = null;
   keysBus: GainNode | null = null;
   compressor: DynamicsCompressorNode | null = null;
+  toneFilter: BiquadFilterNode | null = null;
+  reverbWet: GainNode | null = null;
+  delayNode: DelayNode | null = null;
+  delayWet: GainNode | null = null;
+  delayFeedback: GainNode | null = null;
   fallbackWave: PeriodicWave | null = null;
   buffers: AudioBuffer[][] | null = null;
   loading: Promise<void> | null = null;
@@ -117,7 +131,12 @@ class PianoEngine {
     this.compressor.ratio.value = 3;
     this.compressor.knee.value = 8;
     this.keysBus = context.createGain();
-    this.keysBus.connect(this.master);
+    this.toneFilter = context.createBiquadFilter();
+    this.toneFilter.type = "lowpass";
+    this.toneFilter.frequency.value = 7200;
+    this.toneFilter.Q.value = 0.55;
+    this.keysBus.connect(this.toneFilter);
+    this.toneFilter.connect(this.master);
     this.master.connect(this.compressor);
     this.compressor.connect(context.destination);
 
@@ -132,9 +151,22 @@ class PianoEngine {
     const wet = context.createGain();
     reverb.buffer = impulse;
     wet.gain.value = 0.16;
+    this.reverbWet = wet;
     this.keysBus.connect(reverb);
     reverb.connect(wet);
     wet.connect(this.master);
+
+    this.delayNode = context.createDelay(1.2);
+    this.delayNode.delayTime.value = 0.24;
+    this.delayWet = context.createGain();
+    this.delayWet.gain.value = 0.08;
+    this.delayFeedback = context.createGain();
+    this.delayFeedback.gain.value = 0.28;
+    this.keysBus.connect(this.delayNode);
+    this.delayNode.connect(this.delayWet);
+    this.delayWet.connect(this.master);
+    this.delayNode.connect(this.delayFeedback);
+    this.delayFeedback.connect(this.delayNode);
 
     const harmonics = [0, 1, 0.55, 0.28, 0.14, 0.07];
     const real = new Float32Array(harmonics.length);
@@ -168,6 +200,33 @@ class PianoEngine {
   setVolume(value: number) {
     this.volume = value;
     if (this.master && this.context) this.master.gain.setTargetAtTime(value, this.context.currentTime, 0.03);
+  }
+
+  setTone(value: number) {
+    if (!this.context || !this.toneFilter) return;
+    const frequency = 900 * 2 ** (value / 18);
+    this.toneFilter.frequency.setTargetAtTime(Math.min(15000, frequency), this.context.currentTime, 0.03);
+  }
+
+  setFx(reverb: number, delay: number, feedback: number) {
+    if (!this.context) return;
+    this.reverbWet?.gain.setTargetAtTime(reverb * 0.0042, this.context.currentTime, 0.03);
+    this.delayWet?.gain.setTargetAtTime(delay * 0.0032, this.context.currentTime, 0.03);
+    this.delayFeedback?.gain.setTargetAtTime(Math.min(0.78, feedback * 0.0078), this.context.currentTime, 0.03);
+  }
+
+  click(accent = false) {
+    const context = this.ensureAudio();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = accent ? 1320 : 880;
+    gain.gain.setValueAtTime(accent ? 0.12 : 0.07, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.055);
+    oscillator.connect(gain);
+    gain.connect(this.master!);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.06);
   }
 
   noteOn(note: number, velocity = 96, source = "screen") {
@@ -255,7 +314,13 @@ function Knob({ label, value, color, onChange }: { label: string; value: number;
   );
 }
 
-function WaveDisplay({ activeNotes, bpm }: { activeNotes: Set<number>; bpm: number }) {
+function WaveDisplay({ activeNotes, bpm, mood, keyMode, panelContent }: {
+  activeNotes: Set<number>;
+  bpm: number;
+  mood: Mood;
+  keyMode: KeyMode;
+  panelContent?: React.ReactNode;
+}) {
   return (
     <div className="display" aria-label="Audio monitor">
       <div className="display-head"><span><i /> PARTYKEYS LAB</span><span>{bpm} <b>●</b></span></div>
@@ -263,16 +328,17 @@ function WaveDisplay({ activeNotes, bpm }: { activeNotes: Set<number>; bpm: numb
         <div className="rings"><i /><i /><i /><span>{activeNotes.size || "~"}</span></div>
         <div className="wave-line">
           {Array.from({ length: 16 }, (_, index) => (
-            <i key={index} style={{ "--wave": `${Math.sin(index * 1.8 + activeNotes.size) * (activeNotes.size ? 12 : 4)}deg` } as React.CSSProperties} />
+            <i key={index} style={{ "--wave": `${(Math.sin(index * 1.8 + activeNotes.size) * (activeNotes.size ? 12 : 4)).toFixed(3)}deg` } as React.CSSProperties} />
           ))}
         </div>
       </div>
       <div className="display-foot">
-        <span style={{ color: "#54cfe7" }}>COLOR<br /><b>AURORA</b></span>
+        <span style={{ color: `rgb(${mood.colors[2].join(",")})` }}>MOOD<br /><b>{mood.english}</b></span>
         <span style={{ color: "#61d99f" }}>ENGINE<br /><b>4 LAYER</b></span>
-        <span>PROFILE<br /><b>36 KEYS</b></span>
+        <span>KEY MODE<br /><b>{keyMode === "poly" ? "ROOT" : keyMode === "mono" ? "MONO" : "TRIAD"}</b></span>
         <span style={{ color: "#e99b72" }}>LEVEL<br /><b>{activeNotes.size ? "LIVE" : "IDLE"}</b></span>
       </div>
+      {panelContent}
     </div>
   );
 }
@@ -283,7 +349,13 @@ export default function Home() {
   const outputRef = useRef<any>(null);
   const profileRef = useRef<DeviceProfile>(null);
   const lightModeRef = useRef<LightMode>("palette71");
+  const moodRef = useRef(0);
   const heldRef = useRef(new Set<number>());
+  const heldCountsRef = useRef(new Map<number, number>());
+  const generatedNotesRef = useRef(new Map<string, number[]>());
+  const monoRef = useRef<{ note: number; source: string } | null>(null);
+  const loopEventsRef = useRef<LoopEvent[]>([]);
+  const loopStartRef = useRef(0);
   const runningStatusRef = useRef(new Map<string, number>());
   const [activeNotes, setActiveNotes] = useState(new Set<number>());
   const [connection, setConnection] = useState<"idle" | "waiting" | "connected" | "unsupported" | "error">("idle");
@@ -293,13 +365,20 @@ export default function Home() {
   const [statusText, setStatusText] = useState("点击任意琴键开始");
   const [volume, setVolume] = useState(76);
   const [tone, setTone] = useState(54);
-  const [space, setSpace] = useState(37);
-  const [level, setLevel] = useState(68);
   const [bpm, setBpm] = useState(120);
   const [playing, setPlaying] = useState(false);
-  const [selectedSound, setSelectedSound] = useState(0);
-
-  if (!engineRef.current && typeof window !== "undefined") engineRef.current = new PianoEngine();
+  const [moodIndex, setMoodIndex] = useState(0);
+  const [keyMode, setKeyMode] = useState<KeyMode>("poly");
+  const [panel, setPanel] = useState<PanelMode>("keys");
+  const [loopStatus, setLoopStatus] = useState<LoopStatus>("idle");
+  const [loopProgress, setLoopProgress] = useState(0);
+  const [loopEvents, setLoopEvents] = useState<LoopEvent[]>([]);
+  const [reverb, setReverb] = useState(37);
+  const [delay, setDelay] = useState(18);
+  const [feedback, setFeedback] = useState(28);
+  const [stepMode, setStepMode] = useState<"metronome" | "sequencer">("metronome");
+  const [stepPattern, setStepPattern] = useState([true, false, false, false, true, false, false, false]);
+  const [activeStep, setActiveStep] = useState(-1);
 
   const send = useCallback((frame: number[]) => {
     if (!outputRef.current || frame.length > 256) return;
@@ -320,7 +399,8 @@ export default function Home() {
       send(partyKeysAllOff(mode));
     }
     if (profile === "popupiano29") {
-      send([0xf0, 0x03, 0x1e, 4, 1, 47, 107, 117, 48, 113, 87, 123, 89, 43, 127, 56, 69, 0xf7]);
+      const palette = MOODS[moodRef.current].colors.flatMap(([r, g, b]) => [Math.min(127, Math.round(r / 2)), Math.min(127, Math.round(g / 2)), Math.min(127, Math.round(b / 2))]);
+      send([0xf0, 0x03, 0x1e, 4, 1, ...palette, 0xf7]);
       const pairs = Array.from({ length: 29 }, (_, index) => [index, 0]).flat();
       send([0xf0, 0x03, 0x20, 29, ...pairs, 0xf7]);
     }
@@ -331,10 +411,12 @@ export default function Home() {
     if (!profile || !outputRef.current) return;
     if (profile === "partykeys36" && note >= 48 && note <= 83) {
       if (lightModeRef.current === "rgb15") {
-        const color = on ? COLORS[Math.min(3, Math.floor(Math.max(1, velocity) / 32))] : [0, 0, 0];
+        const color = on ? MOODS[moodRef.current].colors[Math.min(3, Math.floor(Math.max(1, velocity) / 32))] : [0, 0, 0];
         send(rgbFrame(note - 48, color));
       } else {
-        send([...PK_HEADER, 0x71, 0x01, note, on ? 0x08 : 0x00, 0xf7]);
+        const moodPalettes = [[3, 4, 5, 6], [7, 6, 5, 4], [1, 2, 3, 12], [8, 9, 10, 12]];
+        const colorId = moodPalettes[moodRef.current][Math.min(3, Math.floor(Math.max(1, velocity) / 32))];
+        send([...PK_HEADER, 0x71, 0x01, note, on ? colorId : 0x00, 0xf7]);
       }
     }
     if (profile === "popupiano29" && note >= 48 && note <= 76) {
@@ -343,22 +425,64 @@ export default function Home() {
   }, [send]);
 
   const setNoteState = useCallback((note: number, on: boolean) => {
-    if (on) heldRef.current.add(note); else heldRef.current.delete(note);
+    const count = heldCountsRef.current.get(note) || 0;
+    if (on) {
+      heldCountsRef.current.set(note, count + 1);
+      heldRef.current.add(note);
+    } else if (count <= 1) {
+      heldCountsRef.current.delete(note);
+      heldRef.current.delete(note);
+    } else heldCountsRef.current.set(note, count - 1);
     setActiveNotes(new Set(heldRef.current));
   }, []);
 
-  const noteOn = useCallback((note: number, velocity = 100, source = "screen") => {
+  const recordLoopEvent = useCallback((type: "on" | "off", note: number, velocity: number, source: string) => {
+    if (loopStatus !== "recording" || source.startsWith("loop") || source.startsWith("step")) return;
+    const at = Math.max(0, performance.now() - loopStartRef.current);
+    loopEventsRef.current.push({ type, note, velocity, at });
+  }, [loopStatus]);
+
+  const soundNoteOn = useCallback((note: number, velocity = 100, source = "screen") => {
     engineRef.current?.noteOn(note, velocity, source);
     setNoteState(note, true);
     lightNote(note, true, velocity);
+    recordLoopEvent("on", note, velocity, source);
     setStatusText(`${noteLabel(note)} · 力度 ${velocity}`);
-  }, [lightNote, setNoteState]);
+  }, [lightNote, recordLoopEvent, setNoteState]);
 
-  const noteOff = useCallback((note: number, source = "screen") => {
+  const soundNoteOff = useCallback((note: number, source = "screen") => {
     engineRef.current?.noteOff(note, source);
     setNoteState(note, false);
     lightNote(note, false);
-  }, [lightNote, setNoteState]);
+    recordLoopEvent("off", note, 0, source);
+  }, [lightNote, recordLoopEvent, setNoteState]);
+
+  const noteOn = useCallback((note: number, velocity = 100, source = "screen") => {
+    const sourceKey = `${source}:${note}`;
+    if (generatedNotesRef.current.has(sourceKey)) return;
+    if (keyMode === "mono" && monoRef.current) {
+      const previous = monoRef.current;
+      const previousKey = `${previous.source}:${previous.note}`;
+      const previousNotes = generatedNotesRef.current.get(previousKey) || [previous.note];
+      previousNotes.forEach((generated) => soundNoteOff(generated, `${previous.source}-${previous.note}`));
+      generatedNotesRef.current.delete(previousKey);
+    }
+    const intervals = CHORD_INTERVALS[note % 12] || [4, 7];
+    const generated = keyMode === "chord" ? [note, note + intervals[0], note + intervals[1]] : [note];
+    const playable = generated.filter((value) => value >= 21 && value <= 108);
+    generatedNotesRef.current.set(sourceKey, playable);
+    if (keyMode === "mono") monoRef.current = { note, source };
+    playable.forEach((generatedNote) => soundNoteOn(generatedNote, velocity, `${source}-${note}`));
+    if (keyMode === "chord") setStatusText(`${noteLabel(note)} · ${intervals[1] === 6 ? "减三和弦" : intervals[0] === 3 ? "小三和弦" : "大三和弦"}`);
+  }, [keyMode, soundNoteOff, soundNoteOn]);
+
+  const noteOff = useCallback((note: number, source = "screen") => {
+    const sourceKey = `${source}:${note}`;
+    const generated = generatedNotesRef.current.get(sourceKey) || [note];
+    generated.forEach((generatedNote) => soundNoteOff(generatedNote, `${source}-${note}`));
+    generatedNotesRef.current.delete(sourceKey);
+    if (monoRef.current?.note === note && monoRef.current.source === source) monoRef.current = null;
+  }, [soundNoteOff]);
 
   const parseMidiPacket = useCallback((data: unknown, rawTime: unknown, portId: string) => {
     const bytes = Array.from(data as ArrayLike<number> || [], (value) => Number(value) & 0xff).filter((value) => value < 0xf8);
@@ -454,14 +578,116 @@ export default function Home() {
     }
   }, [bindPorts]);
 
+  const startLoopRecording = useCallback(() => {
+    engineRef.current?.ensureAudio();
+    loopEventsRef.current = [];
+    setLoopEvents([]);
+    loopStartRef.current = performance.now();
+    setLoopProgress(0);
+    setLoopStatus("recording");
+    setPanel("loop");
+    setStatusText("LOOP 录制中 · 接下来 8 拍会自动循环");
+  }, []);
+
+  const stopLoop = useCallback((clear = false) => {
+    setLoopStatus("idle");
+    setLoopProgress(0);
+    if (clear) {
+      loopEventsRef.current = [];
+      setLoopEvents([]);
+      setStatusText("LOOP 已清空");
+    } else setStatusText("LOOP 已停止");
+  }, []);
+
+  useEffect(() => {
+    if (!engineRef.current) engineRef.current = new PianoEngine();
+  }, []);
+
   useEffect(() => {
     lightModeRef.current = lightMode;
     if (deviceProfile === "partykeys36") initLights(deviceProfile, lightMode);
   }, [deviceProfile, initLights, lightMode]);
 
   useEffect(() => {
+    moodRef.current = moodIndex;
+    if (deviceProfile === "popupiano29") initLights(deviceProfile, "palette71");
+  }, [deviceProfile, initLights, moodIndex]);
+
+  useEffect(() => {
     engineRef.current?.setVolume(volume / 100);
   }, [volume]);
+
+  useEffect(() => {
+    engineRef.current?.setTone(tone);
+  }, [tone]);
+
+  useEffect(() => {
+    engineRef.current?.setFx(reverb, delay, feedback);
+  }, [delay, feedback, reverb]);
+
+  useEffect(() => {
+    if (loopStatus !== "recording") return;
+    const duration = (60_000 / bpm) * 8;
+    let frame = 0;
+    const update = () => {
+      const elapsed = performance.now() - loopStartRef.current;
+      setLoopProgress(Math.min(1, elapsed / duration));
+      if (elapsed >= duration) {
+        const recorded = [...loopEventsRef.current];
+        const balances = new Map<number, number>();
+        recorded.forEach((event) => balances.set(event.note, (balances.get(event.note) || 0) + (event.type === "on" ? 1 : -1)));
+        balances.forEach((count, note) => {
+          for (let index = 0; index < count; index += 1) recorded.push({ type: "off", note, velocity: 0, at: duration - 8 });
+        });
+        recorded.sort((a, b) => a.at - b.at);
+        loopEventsRef.current = recorded;
+        setLoopEvents(recorded);
+        setLoopStatus(recorded.some((event) => event.type === "on") ? "playing" : "idle");
+        setStatusText(recorded.length ? "LOOP 已接管 · 8 拍无限循环" : "LOOP 没有录到音符");
+        return;
+      }
+      frame = requestAnimationFrame(update);
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [bpm, loopStatus]);
+
+  useEffect(() => {
+    if (loopStatus !== "playing" || !loopEvents.length) return;
+    const duration = (60_000 / bpm) * 8;
+    const timers = new Set<number>();
+    const activeLoopNotes = new Set<number>();
+    const origin = performance.now();
+    let frame = 0;
+    const scheduleCycle = () => {
+      loopEvents.forEach((event) => {
+        const timer = window.setTimeout(() => {
+          const source = `loop-${event.note}`;
+          if (event.type === "on") {
+            activeLoopNotes.add(event.note);
+            soundNoteOn(event.note, event.velocity, source);
+          } else {
+            activeLoopNotes.delete(event.note);
+            soundNoteOff(event.note, source);
+          }
+        }, Math.min(duration - 1, event.at));
+        timers.add(timer);
+      });
+      const next = window.setTimeout(scheduleCycle, duration);
+      timers.add(next);
+    };
+    const progress = () => {
+      setLoopProgress(((performance.now() - origin) % duration) / duration);
+      frame = requestAnimationFrame(progress);
+    };
+    scheduleCycle();
+    frame = requestAnimationFrame(progress);
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      cancelAnimationFrame(frame);
+      activeLoopNotes.forEach((note) => soundNoteOff(note, `loop-${note}`));
+    };
+  }, [bpm, loopEvents, loopStatus, soundNoteOff, soundNoteOn]);
 
   useEffect(() => {
     const keyMap: Record<string, number> = { a: 60, w: 61, s: 62, e: 63, d: 64, f: 65, t: 66, g: 67, y: 68, h: 69, u: 70, j: 71, k: 72 };
@@ -486,18 +712,23 @@ export default function Home() {
 
   useEffect(() => {
     if (!playing) return;
-    const pattern = [48, 55, 60, 64, 67, 72, 67, 55];
     let step = 0;
     const tick = () => {
-      const note = pattern[step % pattern.length];
-      noteOn(note, 56 + (step % 4) * 12, "sequence");
-      window.setTimeout(() => noteOff(note, "sequence"), Math.max(90, 60_000 / bpm / 2));
+      const index = step % 8;
+      setActiveStep(index);
+      const enabled = stepPattern[index];
+      engineRef.current?.click(index === 0 || enabled);
+      if (stepMode === "sequencer" && enabled) {
+        const note = [60, 62, 64, 67, 69, 67, 64, 62][index];
+        soundNoteOn(note, index === 0 ? 104 : 78, `step-${index}`);
+        window.setTimeout(() => soundNoteOff(note, `step-${index}`), Math.max(80, 60_000 / bpm * 0.42));
+      }
       step += 1;
     };
     tick();
     const timer = window.setInterval(tick, 60_000 / bpm);
-    return () => window.clearInterval(timer);
-  }, [bpm, noteOff, noteOn, playing]);
+    return () => { window.clearInterval(timer); setActiveStep(-1); };
+  }, [bpm, playing, soundNoteOff, soundNoteOn, stepMode, stepPattern]);
 
   const profileLabel = deviceProfile === "partykeys36" ? "PK36" : deviceProfile === "popupiano29" ? "PP29" : "MIDI";
   const statusClass = connection === "connected" ? "connected" : connection === "error" || connection === "unsupported" ? "error" : "";
@@ -508,8 +739,59 @@ export default function Home() {
     });
   }, []);
 
+  const mood = MOODS[moodIndex];
+  const panelContent = panel ? (
+    <div className={`mini-panel mini-panel-${panel}`}>
+      <div className="mini-panel-head">
+        <b>{panel === "keys" ? "KEY BEHAVIOR" : panel === "loop" ? "8-BEAT LOOP" : panel === "fx" ? "FX RACK" : "CLOCK / STEP"}</b>
+        <button aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
+      </div>
+      {panel === "keys" && (
+        <div className="key-mode-options">
+          {([
+            ["poly", "主音", "正常复音"],
+            ["mono", "旋律单音", "后音切前音"],
+            ["chord", "和弦", "单键三和弦"],
+          ] as const).map(([value, name, hint]) => (
+            <button key={value} className={keyMode === value ? "panel-active" : ""} onClick={() => { setKeyMode(value); setStatusText(`${name}模式 · ${hint}`); }}>
+              <b>{name}</b><small>{hint}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {panel === "loop" && (
+        <div className="loop-panel">
+          <div className="loop-meta"><span className={loopStatus}>{loopStatus === "recording" ? "● REC" : loopStatus === "playing" ? "▶ LOOP" : "○ READY"}</span><span>{loopEvents.filter((event) => event.type === "on").length} NOTES</span></div>
+          <div className="loop-track">
+            {Array.from({ length: 8 }, (_, index) => <i key={index} className={Math.floor(loopProgress * 8) === index ? "now" : ""} />)}
+            <span style={{ width: `${loopProgress * 100}%` }} />
+          </div>
+          <div className="panel-actions">
+            <button onClick={startLoopRecording}>{loopStatus === "recording" ? "重新录制" : "录制 8 拍"}</button>
+            <button onClick={() => stopLoop(false)}>停止</button>
+            <button onClick={() => stopLoop(true)}>清空</button>
+          </div>
+        </div>
+      )}
+      {panel === "fx" && (
+        <div className="fx-panel">
+          {[["混响", reverb, setReverb], ["延迟", delay, setDelay], ["反馈", feedback, setFeedback]].map(([name, value, setter]) => (
+            <label key={name as string}><span>{name as string}</span><input type="range" min="0" max="100" value={value as number} onChange={(event) => (setter as (value: number) => void)(Number(event.target.value))} /><b>{value as number}</b></label>
+          ))}
+        </div>
+      )}
+      {panel === "step" && (
+        <div className="step-panel">
+          <button className={stepMode === "metronome" ? "panel-active" : ""} onClick={() => setStepMode("metronome")}><b>节拍提示</b><small>滴 · 答 · 答 · 答</small></button>
+          <button className={stepMode === "sequencer" ? "panel-active" : ""} onClick={() => setStepMode("sequencer")}><b>八步音序</b><small>亮起的步会发声</small></button>
+          <div><button onClick={() => setBpm((value) => Math.max(50, value - 2))}>−</button><strong>{bpm} BPM</strong><button onClick={() => setBpm((value) => Math.min(180, value + 2))}>＋</button></div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={{ "--mood": `rgb(${mood.colors[2].join(",")})`, "--mood-soft": `rgba(${mood.colors[2].join(",")},.45)` } as React.CSSProperties}>
       <header className="topbar">
         <div className="window-dots" aria-hidden="true"><i /><i /><i /></div>
         <a className="wordmark" href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">
@@ -525,7 +807,7 @@ export default function Home() {
       <section className="instrument" aria-label="PartyKeys Play Lab virtual instrument">
         <div className="top-deck">
           <section className="speaker-zone">
-            <div className="speaker"><Image className="speaker-logo" src="/brand-logo.png" alt="PartyKeys" width={72} height={72} /></div>
+            <div className="speaker"><Image className="speaker-logo" src="/brand-logo.png" alt="PartyKeys" width={72} height={72} priority /></div>
             <div className="utility-stack">
               <button aria-label="Master volume" onClick={() => setVolume((value) => value > 0 ? 0 : 76)}><span className="mini-knob" /><small>VOL</small></button>
               <button aria-label="Audio monitor">◖))</button>
@@ -534,12 +816,12 @@ export default function Home() {
             </div>
           </section>
 
-          <WaveDisplay activeNotes={activeNotes} bpm={bpm} />
+          <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} panelContent={panelContent} />
 
           <div className="knob-row">
             <Knob label="TONE" value={tone} color="#61d9aa" onChange={setTone} />
-            <Knob label="SPACE" value={space} color="#62c8e6" onChange={setSpace} />
-            <Knob label="COLOR" value={level} color="#f1b671" onChange={setLevel} />
+            <Knob label="REVERB" value={reverb} color="#62c8e6" onChange={setReverb} />
+            <Knob label="DELAY" value={delay} color="#f1b671" onChange={setDelay} />
             <Knob label="MASTER" value={volume} color="#ff758a" onChange={setVolume} />
           </div>
 
@@ -551,23 +833,25 @@ export default function Home() {
 
         <div className="pad-row">
           <div className="mode-pads">
-            {[["⌁", "KEYS"], ["✣", "CHORD"], ["∞", "LOOP"], ["≋", "FX"]].map(([icon, label], index) => (
-              <button key={label} className={selectedSound === index ? "active-pad" : ""} onClick={() => setSelectedSound(index)}><span>{icon}</span><small>{label}</small></button>
-            ))}
+            <button className={keyMode === "poly" ? "active-pad" : ""} onClick={() => { setKeyMode("poly"); setPanel("keys"); }}><span>●</span><small>主音</small></button>
+            <button className={keyMode === "mono" ? "active-pad" : ""} onClick={() => { setKeyMode("mono"); setPanel("keys"); }}><span>⌁</span><small>旋律单音</small></button>
+            <button className={keyMode === "chord" ? "active-pad" : ""} onClick={() => { setKeyMode("chord"); setPanel("keys"); }}><span>✣</span><small>和弦</small></button>
+            <button className={loopStatus !== "idle" ? "active-pad loop-active" : ""} onClick={() => { setPanel("loop"); if (loopStatus === "idle") startLoopRecording(); }}><span>∞</span><small>LOOP</small></button>
+            <button className={panel === "fx" ? "active-pad" : ""} onClick={() => setPanel("fx")}><span>≋</span><small>FX</small></button>
           </div>
           <div className="sound-pads">
-            {["PURE", "FELT", "WARM", "AIR"].map((label, index) => <button key={label} className={selectedSound === index ? "selected" : ""} onClick={() => setSelectedSound(index)}><b>{index + 1}</b><small>{label}</small></button>)}
+            {MOODS.map((item, index) => <button key={item.name} className={moodIndex === index ? "selected" : ""} style={{ "--pad-color": `rgb(${item.colors[2].join(",")})` } as React.CSSProperties} onClick={() => { setMoodIndex(index); setStatusText(`${item.name}配色 · ${item.description}`); }}><b>{item.name}</b><small>{item.english}</small></button>)}
           </div>
           <div className="step-pads">
-            {Array.from({ length: 8 }, (_, index) => <button key={index} className={playing && index === 0 ? "step-on" : ""} onClick={() => { setBpm(96 + index * 6); setStatusText(`节拍 ${index + 1} · ${96 + index * 6} BPM`); }}><b>{index + 1}</b><small>{index % 2 ? "BEAT" : "STEP"}</small></button>)}
+            {Array.from({ length: 8 }, (_, index) => <button key={index} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => { setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value)); setPanel("step"); }}><b>{index + 1}</b><small>{activeStep === index ? "NOW" : stepPattern[index] ? "ON" : "STEP"}</small></button>)}
           </div>
-          <button className="more-button" onClick={() => setLightMode((mode) => mode === "palette71" ? "rgb15" : "palette71")}>•••<small>{lightMode === "rgb15" ? "RGB 15" : "COMPAT 71"}</small></button>
+          <button className="more-button" onClick={() => { setPanel("step"); setLightMode((mode) => mode === "palette71" ? "rgb15" : "palette71"); }}>•••<small>{lightMode === "rgb15" ? "RGB 15" : "COMPAT 71"}</small></button>
         </div>
 
         <div className="lower-deck">
           <aside className="transport">
-            <div className="edit-row"><button>⇧<small>LOAD</small></button><button>▣<small>SAVE</small></button><button>✂<small>EDIT</small></button></div>
-            <div className="play-row"><button onClick={() => setStatusText("录音将在下一小节开始")}>◉<small>REC</small></button><button className={playing ? "playing" : ""} onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}<small>{playing ? "PAUSE" : "PLAY"}</small></button><button onClick={() => { setPlaying(false); engineRef.current?.releaseAll(); heldRef.current.clear(); setActiveNotes(new Set()); allLightsOff(); }}>■<small>STOP</small></button></div>
+            <div className="edit-row"><button onClick={() => setPanel("keys")}>⇧<small>KEY MODE</small></button><button onClick={() => setPanel("loop")}>▣<small>LOOP VIEW</small></button><button onClick={() => setPanel("fx")}>✂<small>FX RACK</small></button></div>
+            <div className="play-row"><button className={loopStatus === "recording" ? "recording" : ""} onClick={startLoopRecording}>◉<small>LOOP REC</small></button><button className={playing ? "playing" : ""} onClick={() => setPlaying((value) => !value)}>{playing ? "Ⅱ" : "▶"}<small>{playing ? "PAUSE" : stepMode === "metronome" ? "CLICK" : "STEP"}</small></button><button onClick={() => { setPlaying(false); stopLoop(false); engineRef.current?.releaseAll(); generatedNotesRef.current.clear(); heldRef.current.clear(); heldCountsRef.current.clear(); setActiveNotes(new Set()); allLightsOff(); }}>■<small>STOP ALL</small></button></div>
             <div className="nav-row"><button>◀◀</button><button>▶▶</button><button onClick={() => setBpm((value) => value === 120 ? 96 : 120)}><span>shift</span><small>{bpm} BPM</small></button></div>
           </aside>
 
