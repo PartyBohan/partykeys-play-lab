@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 
 type MidiEvent = {
   type: "on" | "off" | "pedal";
@@ -512,7 +513,7 @@ export default function Home() {
       <header className="topbar">
         <div className="window-dots" aria-hidden="true"><i /><i /><i /></div>
         <a className="wordmark" href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">
-          <span className="brand-glyph"><i /><i /><i /></span>
+          <Image className="brand-logo" src="/brand-logo.png" alt="PartyKeys" width={32} height={32} priority />
           <span><b>PARTYKEYS</b><small>PLAY LAB</small></span>
         </a>
         <div className="top-actions">
@@ -524,7 +525,7 @@ export default function Home() {
       <section className="instrument" aria-label="PartyKeys Play Lab virtual instrument">
         <div className="top-deck">
           <section className="speaker-zone">
-            <div className="speaker"><div className="speaker-logo"><i /><i /><i /></div></div>
+            <div className="speaker"><Image className="speaker-logo" src="/brand-logo.png" alt="PartyKeys" width={72} height={72} /></div>
             <div className="utility-stack">
               <button aria-label="Master volume" onClick={() => setVolume((value) => value > 0 ? 0 : 76)}><span className="mini-knob" /><small>VOL</small></button>
               <button aria-label="Audio monitor">◖))</button>

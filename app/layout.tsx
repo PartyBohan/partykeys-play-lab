@@ -16,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
+    icons: { icon: "/brand-logo.png", shortcut: "/brand-logo.png", apple: "/brand-logo.png" },
     openGraph: { title, description, type: "website", images: [{ url: image, width: 1731, height: 909, alt: "PartyKeys Play Lab purple virtual instrument" }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
