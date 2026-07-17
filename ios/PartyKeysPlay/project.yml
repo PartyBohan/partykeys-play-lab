@@ -1,0 +1,41 @@
+name: MidiBrowser
+options:
+  bundleIdPrefix: com.popumusic
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: en
+targets:
+  MidiBrowser:
+    type: application
+    platform: iOS
+    sources:
+      - path: MidiBrowser
+        excludes:
+          - "Resources/**"
+      - path: MidiBrowser/Resources
+    info:
+      path: MidiBrowser/Info.plist
+      properties:
+        CFBundleDisplayName: PartyKeys Play
+        NSBluetoothAlwaysUsageDescription: PartyKeys Play 使用蓝牙连接 MIDI 键盘进行演奏和灯光同步。
+        UILSBluetoothAlwaysUsageDescription: PartyKeys Play 使用蓝牙连接 MIDI 键盘。
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UILaunchScreen:
+          UIColorName: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.partykeys.op1
+        TARGETED_DEVICE_FAMILY: 1,2
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  MidiBrowserTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [MidiBrowserTests]
+    dependencies:
+      - target: MidiBrowser
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES

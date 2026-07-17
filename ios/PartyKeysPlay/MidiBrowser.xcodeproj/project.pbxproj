@@ -1,0 +1,557 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06D8BD816B38132E494397A1 /* webmidi-polyfill.js in Resources */ = {isa = PBXBuildFile; fileRef = 1DC0872B2468EE2355EE381A /* webmidi-polyfill.js */; };
+		0D8747520204EE1DB433C8D0 /* MidiBrowserApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47014446990829DAD556B69C /* MidiBrowserApp.swift */; };
+		364352E48E1C778A5C5752FA /* MIDIPortMapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8904491E346FFB5236E8BD06 /* MIDIPortMapTests.swift */; };
+		371CEDE0BD118CF9C5CA5CE6 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C6DCD686A4C511400E13CD5 /* AppConfig.swift */; };
+		464A8FF37519F48DA7A7C974 /* MIDIBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19E88BDC829146A21E8B9DAC /* MIDIBridge.swift */; };
+		47DE4DB3FE920FD081FAA1E1 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7868000C3FB403CC6AAFABDA /* BrowserView.swift */; };
+		4FE0C1A92F308F63BAA665BF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0DF4305E1398D91B4772E3EA /* InfoPlist.strings */; };
+		5AE1836CF8D0AB665DA794C7 /* BridgeMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D187DD916077B1FDB52BD3BB /* BridgeMessage.swift */; };
+		68910BAF18C7BBDBE5D88F75 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BE51A629BFEC50EF2DF440EE /* Assets.xcassets */; };
+		707EFF96A798F149EF2468B3 /* WebViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA57C119B4DC15D2D7FD5C5 /* WebViewCoordinator.swift */; };
+		86BEBFA734D8B9FB6A373E57 /* MIDIConnectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E125FE9A677A7BFE14FECF89 /* MIDIConnectorView.swift */; };
+		86FCC293033CAF3B1982BAF2 /* OriginAllowlistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310029D61F80C88E9100C4D1 /* OriginAllowlistTests.swift */; };
+		891FCC81BB5A27C0712FD9C0 /* midi-checker.html in Resources */ = {isa = PBXBuildFile; fileRef = 865F8B3752B4BE39E4FB8920 /* midi-checker.html */; };
+		9741FACBF1A1E63FFFC9BD2D /* MIDIPortMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9477E50F7FDF04D1D0418C13 /* MIDIPortMap.swift */; };
+		9DD390899857E68A60DE86B3 /* CoreMIDIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD8D31E844B7A1F593F69D7 /* CoreMIDIService.swift */; };
+		A65FB8090E384F5B5DA8287A /* MIDIBatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E527F9D5C01BA945E4CD0E4 /* MIDIBatcher.swift */; };
+		ACBD6154424EE5ED781EC009 /* BundledPageHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FE18C68B0D524AE28EBD31 /* BundledPageHandler.swift */; };
+		C0FD5E22DB4763F950CA8997 /* OriginAllowlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108C113DC4F9BEBC4FE8CA22 /* OriginAllowlist.swift */; };
+		C175DC3DA38955A6E0EEB3B1 /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = A8557928EF26DB3A270F103C /* config.json */; };
+		C562F89A3DB5A6BB7D0FB046 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5168D141A694D235842A3564 /* BrowserViewModel.swift */; };
+		C6B138B36D73B65D94ADB956 /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2DEFB9B3E1D45B38E15564 /* AppConfigTests.swift */; };
+		D21BEDE7ECB086B47EEF38B6 /* ConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25FA1BDCD14505A45214BF9 /* ConfigLoader.swift */; };
+		D66F4953402C51F5F2891EC8 /* MIDIBatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB9A5E74ED551919F570F8A /* MIDIBatcherTests.swift */; };
+		D7EFC444F72147C8C6D7055F /* BridgeMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85993DC47EF6CD7FFFD687EA /* BridgeMessageTests.swift */; };
+		EA7E6CF38652595694DC4B3D /* CoreMIDIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1DF49B1D1123E16CB92D634 /* CoreMIDIServiceTests.swift */; };
+		F4F6FFFF15BB76BFD8DC5395 /* StatusChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50ED68B2C00B42302EC4E5A0 /* StatusChip.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4B963D68FB6F2BDCFBC726E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF89FA8A0A35B18385D0AF85 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 54E30B23712354E6B308550C;
+			remoteInfo = MidiBrowser;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		108C113DC4F9BEBC4FE8CA22 /* OriginAllowlist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginAllowlist.swift; sourceTree = "<group>"; };
+		16C0ABAEF03C680CA3E7FF7D /* MidiBrowserTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MidiBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		19E88BDC829146A21E8B9DAC /* MIDIBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIBridge.swift; sourceTree = "<group>"; };
+		1DC0872B2468EE2355EE381A /* webmidi-polyfill.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "webmidi-polyfill.js"; sourceTree = "<group>"; };
+		310029D61F80C88E9100C4D1 /* OriginAllowlistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginAllowlistTests.swift; sourceTree = "<group>"; };
+		3C6DCD686A4C511400E13CD5 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		46FE18C68B0D524AE28EBD31 /* BundledPageHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledPageHandler.swift; sourceTree = "<group>"; };
+		47014446990829DAD556B69C /* MidiBrowserApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MidiBrowserApp.swift; sourceTree = "<group>"; };
+		4BA57C119B4DC15D2D7FD5C5 /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
+		50ED68B2C00B42302EC4E5A0 /* StatusChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusChip.swift; sourceTree = "<group>"; };
+		5168D141A694D235842A3564 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
+		5CB9A5E74ED551919F570F8A /* MIDIBatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIBatcherTests.swift; sourceTree = "<group>"; };
+		6B5829952D4B70E17843F239 /* MidiBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MidiBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7868000C3FB403CC6AAFABDA /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		85993DC47EF6CD7FFFD687EA /* BridgeMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeMessageTests.swift; sourceTree = "<group>"; };
+		865F8B3752B4BE39E4FB8920 /* midi-checker.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "midi-checker.html"; sourceTree = "<group>"; };
+		88BE674D93E67299B02F1199 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8904491E346FFB5236E8BD06 /* MIDIPortMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPortMapTests.swift; sourceTree = "<group>"; };
+		8E527F9D5C01BA945E4CD0E4 /* MIDIBatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIBatcher.swift; sourceTree = "<group>"; };
+		9477E50F7FDF04D1D0418C13 /* MIDIPortMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIPortMap.swift; sourceTree = "<group>"; };
+		9E2DEFB9B3E1D45B38E15564 /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
+		9F1988012F4A00A4094B73C3 /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		9F41CB63DAA4D1D6E42484EE /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
+		A8557928EF26DB3A270F103C /* config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.json; sourceTree = "<group>"; };
+		B1DF49B1D1123E16CB92D634 /* CoreMIDIServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMIDIServiceTests.swift; sourceTree = "<group>"; };
+		BE51A629BFEC50EF2DF440EE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C25FA1BDCD14505A45214BF9 /* ConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader.swift; sourceTree = "<group>"; };
+		D187DD916077B1FDB52BD3BB /* BridgeMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeMessage.swift; sourceTree = "<group>"; };
+		DCD8D31E844B7A1F593F69D7 /* CoreMIDIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMIDIService.swift; sourceTree = "<group>"; };
+		E125FE9A677A7BFE14FECF89 /* MIDIConnectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIConnectorView.swift; sourceTree = "<group>"; };
+		E6DDDBF3CC4602CF77D2A32F /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		EE8E06BDC0ACC039C5E8EFC4 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		030CC98247F9C1113DAC507B /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7868000C3FB403CC6AAFABDA /* BrowserView.swift */,
+				5168D141A694D235842A3564 /* BrowserViewModel.swift */,
+				E125FE9A677A7BFE14FECF89 /* MIDIConnectorView.swift */,
+				50ED68B2C00B42302EC4E5A0 /* StatusChip.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		097B068B3C4F978E7D254BFF /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				D187DD916077B1FDB52BD3BB /* BridgeMessage.swift */,
+				19E88BDC829146A21E8B9DAC /* MIDIBridge.swift */,
+			);
+			path = Bridge;
+			sourceTree = "<group>";
+		};
+		2792F17C459928CA2363795D = {
+			isa = PBXGroup;
+			children = (
+				322ACF804E46CCFEC7CA3A1F /* MidiBrowser */,
+				EE5151BDC337FC0CF7324A00 /* MidiBrowserTests */,
+				8554EF1848A1443A8A732B24 /* Resources */,
+				E36B74CE4807F4146581F210 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		322ACF804E46CCFEC7CA3A1F /* MidiBrowser */ = {
+			isa = PBXGroup;
+			children = (
+				88BE674D93E67299B02F1199 /* Info.plist */,
+				47014446990829DAD556B69C /* MidiBrowserApp.swift */,
+				030CC98247F9C1113DAC507B /* App */,
+				097B068B3C4F978E7D254BFF /* Bridge */,
+				DE2A43959A386D2EE55D74FA /* Config */,
+				4E1E97C2FE8DC8E6571E1395 /* MIDI */,
+				F984A89A7450B221E07B6931 /* WebView */,
+			);
+			path = MidiBrowser;
+			sourceTree = "<group>";
+		};
+		4E1E97C2FE8DC8E6571E1395 /* MIDI */ = {
+			isa = PBXGroup;
+			children = (
+				DCD8D31E844B7A1F593F69D7 /* CoreMIDIService.swift */,
+				8E527F9D5C01BA945E4CD0E4 /* MIDIBatcher.swift */,
+				9477E50F7FDF04D1D0418C13 /* MIDIPortMap.swift */,
+			);
+			path = MIDI;
+			sourceTree = "<group>";
+		};
+		8554EF1848A1443A8A732B24 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				9F41CB63DAA4D1D6E42484EE /* .gitkeep */,
+				BE51A629BFEC50EF2DF440EE /* Assets.xcassets */,
+				A8557928EF26DB3A270F103C /* config.json */,
+				865F8B3752B4BE39E4FB8920 /* midi-checker.html */,
+				1DC0872B2468EE2355EE381A /* webmidi-polyfill.js */,
+				0DF4305E1398D91B4772E3EA /* InfoPlist.strings */,
+			);
+			name = Resources;
+			path = MidiBrowser/Resources;
+			sourceTree = "<group>";
+		};
+		DE2A43959A386D2EE55D74FA /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				3C6DCD686A4C511400E13CD5 /* AppConfig.swift */,
+				C25FA1BDCD14505A45214BF9 /* ConfigLoader.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		E36B74CE4807F4146581F210 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6B5829952D4B70E17843F239 /* MidiBrowser.app */,
+				16C0ABAEF03C680CA3E7FF7D /* MidiBrowserTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EE5151BDC337FC0CF7324A00 /* MidiBrowserTests */ = {
+			isa = PBXGroup;
+			children = (
+				9F1988012F4A00A4094B73C3 /* .gitkeep */,
+				9E2DEFB9B3E1D45B38E15564 /* AppConfigTests.swift */,
+				85993DC47EF6CD7FFFD687EA /* BridgeMessageTests.swift */,
+				B1DF49B1D1123E16CB92D634 /* CoreMIDIServiceTests.swift */,
+				5CB9A5E74ED551919F570F8A /* MIDIBatcherTests.swift */,
+				8904491E346FFB5236E8BD06 /* MIDIPortMapTests.swift */,
+				310029D61F80C88E9100C4D1 /* OriginAllowlistTests.swift */,
+			);
+			path = MidiBrowserTests;
+			sourceTree = "<group>";
+		};
+		F984A89A7450B221E07B6931 /* WebView */ = {
+			isa = PBXGroup;
+			children = (
+				46FE18C68B0D524AE28EBD31 /* BundledPageHandler.swift */,
+				108C113DC4F9BEBC4FE8CA22 /* OriginAllowlist.swift */,
+				4BA57C119B4DC15D2D7FD5C5 /* WebViewCoordinator.swift */,
+			);
+			path = WebView;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		54E30B23712354E6B308550C /* MidiBrowser */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1010D8C0B596FCDB39F1D057 /* Build configuration list for PBXNativeTarget "MidiBrowser" */;
+			buildPhases = (
+				3AE48ED3AD7CA054F7C498CD /* Sources */,
+				60A69D4C3C73F116DC347E7F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MidiBrowser;
+			packageProductDependencies = (
+			);
+			productName = MidiBrowser;
+			productReference = 6B5829952D4B70E17843F239 /* MidiBrowser.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7C883233769616DA781B6E6D /* MidiBrowserTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B69C4AB1A61EE402FE0D1466 /* Build configuration list for PBXNativeTarget "MidiBrowserTests" */;
+			buildPhases = (
+				FC9E9510C55F4A52E2DDA29C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DE6E489C26C447DE453B79A9 /* PBXTargetDependency */,
+			);
+			name = MidiBrowserTests;
+			packageProductDependencies = (
+			);
+			productName = MidiBrowserTests;
+			productReference = 16C0ABAEF03C680CA3E7FF7D /* MidiBrowserTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DF89FA8A0A35B18385D0AF85 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = F8BDBC727A791751B3AF8CAB /* Build configuration list for PBXProject "MidiBrowser" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = 2792F17C459928CA2363795D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E36B74CE4807F4146581F210 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				54E30B23712354E6B308550C /* MidiBrowser */,
+				7C883233769616DA781B6E6D /* MidiBrowserTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		60A69D4C3C73F116DC347E7F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68910BAF18C7BBDBE5D88F75 /* Assets.xcassets in Resources */,
+				4FE0C1A92F308F63BAA665BF /* InfoPlist.strings in Resources */,
+				C175DC3DA38955A6E0EEB3B1 /* config.json in Resources */,
+				891FCC81BB5A27C0712FD9C0 /* midi-checker.html in Resources */,
+				06D8BD816B38132E494397A1 /* webmidi-polyfill.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3AE48ED3AD7CA054F7C498CD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				371CEDE0BD118CF9C5CA5CE6 /* AppConfig.swift in Sources */,
+				5AE1836CF8D0AB665DA794C7 /* BridgeMessage.swift in Sources */,
+				47DE4DB3FE920FD081FAA1E1 /* BrowserView.swift in Sources */,
+				C562F89A3DB5A6BB7D0FB046 /* BrowserViewModel.swift in Sources */,
+				ACBD6154424EE5ED781EC009 /* BundledPageHandler.swift in Sources */,
+				D21BEDE7ECB086B47EEF38B6 /* ConfigLoader.swift in Sources */,
+				9DD390899857E68A60DE86B3 /* CoreMIDIService.swift in Sources */,
+				A65FB8090E384F5B5DA8287A /* MIDIBatcher.swift in Sources */,
+				464A8FF37519F48DA7A7C974 /* MIDIBridge.swift in Sources */,
+				86BEBFA734D8B9FB6A373E57 /* MIDIConnectorView.swift in Sources */,
+				9741FACBF1A1E63FFFC9BD2D /* MIDIPortMap.swift in Sources */,
+				0D8747520204EE1DB433C8D0 /* MidiBrowserApp.swift in Sources */,
+				C0FD5E22DB4763F950CA8997 /* OriginAllowlist.swift in Sources */,
+				F4F6FFFF15BB76BFD8DC5395 /* StatusChip.swift in Sources */,
+				707EFF96A798F149EF2468B3 /* WebViewCoordinator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC9E9510C55F4A52E2DDA29C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6B138B36D73B65D94ADB956 /* AppConfigTests.swift in Sources */,
+				D7EFC444F72147C8C6D7055F /* BridgeMessageTests.swift in Sources */,
+				EA7E6CF38652595694DC4B3D /* CoreMIDIServiceTests.swift in Sources */,
+				D66F4953402C51F5F2891EC8 /* MIDIBatcherTests.swift in Sources */,
+				364352E48E1C778A5C5752FA /* MIDIPortMapTests.swift in Sources */,
+				86FCC293033CAF3B1982BAF2 /* OriginAllowlistTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DE6E489C26C447DE453B79A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 54E30B23712354E6B308550C /* MidiBrowser */;
+			targetProxy = 4B963D68FB6F2BDCFBC726E0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		0DF4305E1398D91B4772E3EA /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				EE8E06BDC0ACC039C5E8EFC4 /* en */,
+				E6DDDBF3CC4602CF77D2A32F /* zh-Hans */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		05B579B28313ED26C6DCF6C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = E8N96C6G6N;
+				INFOPLIST_FILE = MidiBrowser/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.partykeys.op1;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8D2FB7D138848704A982911D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A8A7790E008E17A641501B18 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B1241827D9889C2A1223AC05 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.popumusic.MidiBrowserTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MidiBrowser.app/MidiBrowser";
+			};
+			name = Debug;
+		};
+		DDB0D3CA56A9A4CC828D1A3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = E8N96C6G6N;
+				INFOPLIST_FILE = MidiBrowser/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.partykeys.op1;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F01F25D750F1754366F654D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.popumusic.MidiBrowserTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MidiBrowser.app/MidiBrowser";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1010D8C0B596FCDB39F1D057 /* Build configuration list for PBXNativeTarget "MidiBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				05B579B28313ED26C6DCF6C5 /* Debug */,
+				DDB0D3CA56A9A4CC828D1A3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B69C4AB1A61EE402FE0D1466 /* Build configuration list for PBXNativeTarget "MidiBrowserTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1241827D9889C2A1223AC05 /* Debug */,
+				F01F25D750F1754366F654D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F8BDBC727A791751B3AF8CAB /* Build configuration list for PBXProject "MidiBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8D2FB7D138848704A982911D /* Debug */,
+				A8A7790E008E17A641501B18 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DF89FA8A0A35B18385D0AF85 /* Project object */;
+}

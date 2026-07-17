@@ -761,6 +761,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!engineRef.current) engineRef.current = new PianoEngine();
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
   }, []);
 
   useEffect(() => {

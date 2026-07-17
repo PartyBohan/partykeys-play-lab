@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font:16px system-ui;padding:16px}#log{white-space:pre-wrap;font-family:monospace}</style>
+</head><body>
+<h2>Web MIDI Checker</h2>
+<div id="ports"></div>
+<h3>Messages</h3>
+<div id="log">(none)</div>
+<script>
+navigator.requestMIDIAccess().then(function (access) {
+  var ports = document.getElementById('ports');
+  function dump() {
+    ports.textContent =
+      'inputs: ' + Array.from(access.inputs.values()).map(function(p){return p.name;}).join(', ') +
+      ' | outputs: ' + Array.from(access.outputs.values()).map(function(p){return p.name;}).join(', ');
+  }
+  dump();
+  access.onstatechange = dump;
+  access.inputs.forEach(function (input) {
+    input.onmidimessage = function (e) {
+      document.getElementById('log').textContent = e.data.join(' ');
+    };
+  });
+}).catch(function (err) {
+  document.getElementById('ports').textContent = 'MIDI access failed: ' + err;
+});
+</script></body></html>
