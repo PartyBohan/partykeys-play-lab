@@ -1049,7 +1049,7 @@ export default function Home() {
       <footer className="statusbar">
         <span className={`live-dot ${statusClass}`}><i /> {statusText}</span>
         <span>四层 Salamander C5 音源 · CC64 踏板 · Web MIDI / MidiBrowser</span>
-        <a href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">Foundation ↗</a>
+        <span className="legal-links"><a href="/privacy">隐私政策</a><a href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">Foundation ↗</a></span>
       </footer>
     </main>
   );
