@@ -1051,7 +1051,7 @@ export default function Home() {
             {MOODS.map((item, index) => <button key={item.name} className={moodIndex === index ? "selected" : ""} style={{ "--pad-color": `rgb(${item.colors[2].join(",")})` } as React.CSSProperties} onClick={() => { setMoodIndex(index); setStatusText(`${item.name}配色 · ${item.description}`); }}><b>{item.name}</b><small>{item.english}</small></button>)}
           </div>
           <div className="step-pads">
-            {Array.from({ length: 8 }, (_, index) => <button key={index} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => { setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value)); setPanel("step"); }}><b>{index + 1}</b><small>{activeStep === index ? "NOW" : stepPattern[index] ? "ON" : "STEP"}</small></button>)}
+            {Array.from({ length: 8 }, (_, index) => <button key={index} aria-label={`节拍 ${index + 1}${stepPattern[index] ? "，已开启" : ""}`} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => { setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value)); setPanel("step"); }}><b>{index + 1}</b>{playing && activeStep === index ? <small>播放</small> : null}</button>)}
           </div>
           <button className="more-button" onClick={() => { setPanel("step"); setLightMode((mode) => mode === "palette71" ? "rgb15" : "palette71"); }}>•••<small>{lightMode === "rgb15" ? "RGB 15" : "COMPAT 71"}</small></button>
         </div>
@@ -1064,7 +1064,7 @@ export default function Home() {
           </aside>
 
           <div className="keyboard-wrap">
-            <div className="keyboard-guide"><span><i className="guide-dot" />音阶提示</span><span><i className="press-dot" />按下反馈</span><b>{connection === "connected" ? "实体琴灯光已同步" : "连接后同步实体琴灯光"}</b></div>
+            <div className="keyboard-guide"><span><i className="guide-dot" />音阶提示</span><span><i className="press-dot" />按下反馈</span><strong>36 KEYS · C3–B5</strong><b>{connection === "connected" ? "实体琴灯光已同步" : "连接后同步实体琴灯光"}</b></div>
             <div className="keyboard" role="group" aria-label="36-key piano keyboard">
               <div className="white-keys">
                 {WHITE_NOTES.map((note) => <button key={note} aria-label={noteLabel(note)} className={`${activeNotes.has(note) ? "pressed" : ""} ${scaleGuide.has(note) ? "guided" : ""}`} style={scaleGuide.has(note) ? { "--guide": scaleGuide.get(note) } as React.CSSProperties : undefined} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)}><span>{note % 12 === 0 ? noteLabel(note) : ""}</span></button>)}

@@ -40,6 +40,7 @@ test("ships the complete four-layer sample set and protocol safeguards", async (
   assert.match(source, /connectMidi\(false\)/);
   assert.match(source, /nativeBluetoothOutput/);
   assert.match(source, /inputs\.length === 1 && outputs\.length === 1/);
+  assert.equal((source.match(/Array\.from\(\{ length: 36 \}/g) || []).length > 0, true);
   assert.match(source, /data1 === 64/);
   assert.doesNotMatch(source, /0x90,\s*note,\s*0x40/);
 });
