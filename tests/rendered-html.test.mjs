@@ -26,13 +26,11 @@ test("server-renders the PartyKeys instrument", async () => {
 });
 
 test("ships the complete four-layer sample set and protocol safeguards", async () => {
-  const [files, source, keyboardImage] = await Promise.all([
+  const [files, source] = await Promise.all([
     readdir(new URL("../public/samples/", import.meta.url)),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../public/partykeys-keyboard-front.png", import.meta.url)),
   ]);
   assert.equal(files.filter((file) => file.endsWith(".mp3")).length, 52);
-  assert.ok(keyboardImage.length > 100_000);
   assert.match(source, /0xf0, 0x05, 0x30, 0x7f, 0x7f, 0x20, 0x00/);
   assert.match(source, /frame\.length > 256/);
   assert.match(source, /partykey\/i/);

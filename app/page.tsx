@@ -1064,6 +1064,7 @@ export default function Home() {
           </aside>
 
           <div className="keyboard-wrap">
+            <div className="keyboard-guide"><span><i className="guide-dot" />音阶提示</span><span><i className="press-dot" />按下反馈</span><b>{connection === "connected" ? "实体琴灯光已同步" : "连接后同步实体琴灯光"}</b></div>
             <div className="keyboard" role="group" aria-label="36-key piano keyboard">
               <div className="white-keys">
                 {WHITE_NOTES.map((note) => <button key={note} aria-label={noteLabel(note)} className={`${activeNotes.has(note) ? "pressed" : ""} ${scaleGuide.has(note) ? "guided" : ""}`} style={scaleGuide.has(note) ? { "--guide": scaleGuide.get(note) } as React.CSSProperties : undefined} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)}><span>{note % 12 === 0 ? noteLabel(note) : ""}</span></button>)}
