@@ -708,9 +708,17 @@ export default function Home() {
     });
     const partyOutput = outputs.find((port: any) => /partykey/i.test(`${port.name} ${port.manufacturer}`));
     const popuOutput = outputs.find((port: any) => /popupiano/i.test(`${port.name} ${port.manufacturer}`));
-    const output = partyOutput || popuOutput || null;
+    // Apple's BLE-MIDI panel exposes some PartyKeys firmware simply as
+    // "Bluetooth". In this branded native shell, one matching BLE input/output
+    // pair is the designated hardware the user explicitly selected in that panel.
+    const nativeBluetoothOutput = !partyOutput && !popuOutput && isNativeMidiBrowser()
+      && inputs.length === 1 && outputs.length === 1
+      && /bluetooth/i.test(`${inputs[0].name} ${outputs[0].name}`)
+      ? outputs[0]
+      : null;
+    const output = partyOutput || popuOutput || nativeBluetoothOutput || null;
     outputRef.current = output;
-    const profile: DeviceProfile = partyOutput ? "partykeys36" : popuOutput ? "popupiano29" : null;
+    const profile: DeviceProfile = partyOutput || nativeBluetoothOutput ? "partykeys36" : popuOutput ? "popupiano29" : null;
     profileRef.current = profile;
     setDeviceProfile(profile);
     if (profile && output) {
@@ -718,7 +726,7 @@ export default function Home() {
       initLights(profile, mode);
       if (selectedScaleRef.current != null) window.setTimeout(() => applyScaleGuide(selectedScaleRef.current!), 0);
       setConnection("connected");
-      setDeviceName(output.name || (profile === "partykeys36" ? "PartyKeys 36" : "PopuPiano 29"));
+      setDeviceName(nativeBluetoothOutput ? "PartyKeys（蓝牙 MIDI）" : output.name || (profile === "partykeys36" ? "PartyKeys 36" : "PopuPiano 29"));
       setStatusText("设备已连接 · 灯光与音色就绪");
     } else if (inputs.length) {
       setConnection("connected");
