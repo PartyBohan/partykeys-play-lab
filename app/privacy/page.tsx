@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const metadata = {
   title: "隐私政策 | 音乐密码OP",
   description: "音乐密码OP（PartyKeys Play）隐私政策",
@@ -29,9 +31,9 @@ export default function PrivacyPage() {
       <p>当功能或数据处理方式发生变化时，我们会更新本页面，并在适用情况下重新取得必要授权。</p>
 
       <h2>联系我们</h2>
-      <p>如对本隐私政策有疑问，请通过 <a href="https://foundation.partykeys.ai">foundation.partykeys.ai</a> 提供的官方联系渠道与 PartyKeys 团队联系。</p>
+      <p>如对本隐私政策有疑问，请访问 <Link href="/support">支持与联系页面</Link> 与 PartyKeys 团队联系。</p>
 
-      <a className="privacy-back" href="/">返回音乐密码OP</a>
+      <Link className="privacy-back" href="/">返回音乐密码OP</Link>
     </main>
   );
 }
