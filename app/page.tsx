@@ -491,7 +491,7 @@ export default function Home() {
   const [connection, setConnection] = useState<"idle" | "waiting" | "connected" | "unsupported" | "error">("idle");
   const [deviceName, setDeviceName] = useState("未连接");
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile>(null);
-  const [lightMode, setLightMode] = useState<LightMode>("rgb15");
+  const [lightMode] = useState<LightMode>("rgb15");
   const [statusText, setStatusText] = useState("点击任意琴键开始");
   const [volume, setVolume] = useState(76);
   const [tone, setTone] = useState(54);
@@ -1016,44 +1016,31 @@ export default function Home() {
         <div className="top-deck">
           <section className="speaker-zone">
             <div className="speaker"><Image className="speaker-logo" src="/brand-logo.png" alt="PartyKeys" width={72} height={72} priority /></div>
-            <div className="utility-stack">
-              <button aria-label="Master volume" onClick={() => setVolume((value) => value > 0 ? 0 : 76)}><span className="mini-knob" /><small>VOL</small></button>
-              <button aria-label="Audio monitor">◖))</button>
-              <button aria-label="Help" onClick={() => setStatusText("电脑键盘 A–K 也能演奏 · 连接后硬件灯光会同步")}>?</button>
-              <a aria-label="Open PartyKeys Foundation" href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">F</a>
-            </div>
           </section>
 
-          <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} panelContent={panelContent} engineRef={engineRef} />
+          <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} engineRef={engineRef} />
 
           <div className="knob-row">
-            <Knob label="TONE" value={tone} color="#61d9aa" onChange={setTone} />
-            <Knob label="REVERB" value={reverb} color="#62c8e6" onChange={setReverb} />
-            <Knob label="DELAY" value={delay} color="#f1b671" onChange={setDelay} />
-            <Knob label="MASTER" value={volume} color="#ff758a" onChange={setVolume} />
-          </div>
-
-          <div className="side-stack">
-            <button aria-label="Microphone">●<small>MIC</small></button>
-            <button className={connection === "connected" ? "side-active" : ""} onClick={() => void connectMidi(true)}>COM<small>{connection === "connected" ? "ON" : "MIDI"}</small></button>
+            <Knob label="音色" value={tone} color="#61d9aa" onChange={setTone} />
+            <Knob label="混响" value={reverb} color="#62c8e6" onChange={setReverb} />
+            <Knob label="延迟" value={delay} color="#f1b671" onChange={setDelay} />
+            <Knob label="音量" value={volume} color="#ff758a" onChange={setVolume} />
           </div>
         </div>
 
         <div className="pad-row">
           <div className="mode-pads">
-            <button className={keyMode === "poly" ? "active-pad" : ""} onClick={() => { setKeyMode("poly"); setPanel("keys"); }}><span>●</span><small>主音</small></button>
-            <button className={keyMode === "mono" ? "active-pad" : ""} onClick={() => { setKeyMode("mono"); setPanel("keys"); }}><span>⌁</span><small>旋律单音</small></button>
-            <button className={keyMode === "chord" ? "active-pad" : ""} onClick={() => { setKeyMode("chord"); setPanel("keys"); }}><span>✣</span><small>和弦</small></button>
-            <button className={loopStatus !== "idle" ? "active-pad loop-active" : ""} onClick={() => { setPanel("loop"); if (loopStatus === "idle") startLoopRecording(); }}><span>∞</span><small>LOOP</small></button>
-            <button className={panel === "fx" ? "active-pad" : ""} onClick={() => setPanel("fx")}><span>≋</span><small>FX</small></button>
+            <button className={keyMode === "poly" ? "active-pad" : ""} onClick={() => { setKeyMode("poly"); setStatusText("正常演奏模式"); }}><span>●</span><small>正常演奏</small></button>
+            <button className={keyMode === "mono" ? "active-pad" : ""} onClick={() => { setKeyMode("mono"); setStatusText("单音旋律模式"); }}><span>⌁</span><small>单音旋律</small></button>
+            <button className={keyMode === "chord" ? "active-pad" : ""} onClick={() => { setKeyMode("chord"); setStatusText("单键和弦模式"); }}><span>✣</span><small>单键和弦</small></button>
           </div>
           <div className="sound-pads">
             {MOODS.map((item, index) => <button key={item.name} className={moodIndex === index ? "selected" : ""} style={{ "--pad-color": `rgb(${item.colors[2].join(",")})` } as React.CSSProperties} onClick={() => { setMoodIndex(index); setStatusText(`${item.name}配色 · ${item.description}`); }}><b>{item.name}</b><small>{item.english}</small></button>)}
           </div>
           <div className="step-pads">
-            {Array.from({ length: 8 }, (_, index) => <button key={index} aria-label={`节拍 ${index + 1}${stepPattern[index] ? "，已开启" : ""}`} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => { setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value)); setPanel("step"); }}><b>{index + 1}</b>{playing && activeStep === index ? <small>播放</small> : null}</button>)}
+            {Array.from({ length: 8 }, (_, index) => <button key={index} aria-label={`第 ${index + 1} 拍${stepPattern[index] ? "，已开启" : "，已关闭"}`} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value))}><b>{index + 1}</b>{playing && activeStep === index ? <small>播放</small> : null}</button>)}
           </div>
-          <button className="more-button" onClick={() => { setPanel("step"); setLightMode((mode) => mode === "palette71" ? "rgb15" : "palette71"); }}>•••<small>{lightMode === "rgb15" ? "RGB 15" : "COMPAT 71"}</small></button>
+          <button className={`more-button ${playing ? "step-playing" : ""}`} onClick={() => { setStepMode("sequencer"); setPlaying((value) => !value); setStatusText(playing ? "八步节拍已暂停" : "八步节拍播放中"); }}><b>{playing ? "Ⅱ" : "▶"}</b><small>{playing ? "暂停" : "开始"}</small></button>
         </div>
 
         <div className="lower-deck">
