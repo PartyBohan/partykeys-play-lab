@@ -35,6 +35,9 @@ test("ships the complete four-layer sample set and protocol safeguards", async (
   assert.match(source, /frame\.length > 256/);
   assert.match(source, /partykey\/i/);
   assert.match(source, /popupiano\/i/);
+  assert.match(source, /useState<LightMode>\("rgb15"\)/);
+  assert.match(source, /请点右下角“连接 MIDI 设备”/);
+  assert.match(source, /connectMidi\(false\)/);
   assert.match(source, /data1 === 64/);
   assert.doesNotMatch(source, /0x90,\s*note,\s*0x40/);
 });

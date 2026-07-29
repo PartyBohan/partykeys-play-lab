@@ -22,6 +22,10 @@ type LoopStatus = "idle" | "recording" | "playing";
 type LoopEvent = { type: "on" | "off"; note: number; velocity: number; at: number };
 type Mood = { name: string; english: string; description: string; colors: readonly (readonly [number, number, number])[] };
 type ScalePreset = { name: string; short: string; intervals: readonly number[]; colors: readonly (readonly [number, number, number])[] };
+type MidiBrowserWindow = Window & {
+  webkit?: { messageHandlers?: { midiBridge?: unknown } };
+  __webMIDIBridge?: unknown;
+};
 
 const NOTES = Array.from({ length: 36 }, (_, index) => 48 + index);
 const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
@@ -60,6 +64,12 @@ const SCALE_PRESETS: readonly ScalePreset[] = [
 
 function noteLabel(note: number) {
   return `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
+}
+
+function isNativeMidiBrowser() {
+  if (typeof window === "undefined") return false;
+  const midiWindow = window as MidiBrowserWindow;
+  return Boolean(midiWindow.webkit?.messageHandlers?.midiBridge && midiWindow.__webMIDIBridge);
 }
 
 function sampleName(note: number) {
@@ -465,7 +475,7 @@ export default function Home() {
   const midiRef = useRef<any>(null);
   const outputRef = useRef<any>(null);
   const profileRef = useRef<DeviceProfile>(null);
-  const lightModeRef = useRef<LightMode>("palette71");
+  const lightModeRef = useRef<LightMode>("rgb15");
   const moodRef = useRef(0);
   const guideColorsRef = useRef(new Map<number, readonly number[]>());
   const guideSlotsRef = useRef(new Map<number, number>());
@@ -481,7 +491,7 @@ export default function Home() {
   const [connection, setConnection] = useState<"idle" | "waiting" | "connected" | "unsupported" | "error">("idle");
   const [deviceName, setDeviceName] = useState("未连接");
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile>(null);
-  const [lightMode, setLightMode] = useState<LightMode>("palette71");
+  const [lightMode, setLightMode] = useState<LightMode>("rgb15");
   const [statusText, setStatusText] = useState("点击任意琴键开始");
   const [volume, setVolume] = useState(76);
   const [tone, setTone] = useState(54);
@@ -559,11 +569,18 @@ export default function Home() {
     guideSlotsRef.current = slots;
     selectedScaleRef.current = index;
     setSelectedScale(index);
+
+    if (!profileRef.current || !outputRef.current) {
+      setStatusText(isNativeMidiBrowser()
+        ? `${preset.name}音阶已选择 · 请点右下角“连接 MIDI 设备”，连接后灯光会自动同步`
+        : `${preset.name}音阶已选择 · 连接 PartyKeys 后灯光会自动同步`);
+      return;
+    }
     allLightsOff();
 
     if (profileRef.current === "partykeys36") {
       if (lightModeRef.current === "rgb15") {
-        const groups = preset.colors.map((rgb, colorIndex) => ({
+        const groups = preset.colors.map((rgb) => ({
           rgb,
           keys: [...colors.entries()].filter(([, value]) => value === rgb).map(([note]) => note - 48),
         })).filter((group) => group.keys.length);
@@ -710,13 +727,12 @@ export default function Home() {
     } else {
       setConnection("waiting");
       setDeviceName("等待设备");
-      const isMidiBrowser = Boolean((window as any).webkit?.messageHandlers?.midiBridge && (window as any).__webMIDIBridge);
-      setStatusText(isMidiBrowser ? "请在底部点“连接 MIDI 设备”完成蓝牙配对" : "请连接 USB/BLE MIDI，页面会自动发现");
+      setStatusText(isNativeMidiBrowser() ? "请在底部点“连接 MIDI 设备”完成蓝牙配对" : "请连接 USB/BLE MIDI，页面会自动发现");
     }
   }, [applyScaleGuide, initLights, parseMidiPacket]);
 
-  const connectMidi = useCallback(async () => {
-    engineRef.current?.ensureAudio();
+  const connectMidi = useCallback(async (unlockAudio = true) => {
+    if (unlockAudio) engineRef.current?.ensureAudio();
     const nav = navigator as Navigator & { requestMIDIAccess?: (options?: { sysex?: boolean }) => Promise<any> };
     if (!nav.requestMIDIAccess) {
       setConnection("unsupported");
@@ -762,7 +778,8 @@ export default function Home() {
   useEffect(() => {
     if (!engineRef.current) engineRef.current = new PianoEngine();
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
-  }, []);
+    if (isNativeMidiBrowser()) window.setTimeout(() => void connectMidi(false), 0);
+  }, [connectMidi]);
 
   useEffect(() => {
     lightModeRef.current = lightMode;
@@ -898,6 +915,11 @@ export default function Home() {
   }, [bpm, playing, soundNoteOff, soundNoteOn, stepMode, stepPattern]);
 
   const profileLabel = deviceProfile === "partykeys36" ? "PK36" : deviceProfile === "popupiano29" ? "PP29" : "MIDI";
+  const connectLabel = connection === "connected"
+    ? "重新扫描设备"
+    : isNativeMidiBrowser()
+      ? "请点右下角“连接 MIDI 设备”"
+      : "连接 PartyKeys";
   const statusClass = connection === "connected" ? "connected" : connection === "error" || connection === "unsupported" ? "error" : "";
   const blackPositions = useMemo(() => {
     return BLACK_NOTES.map((note) => {
@@ -978,7 +1000,7 @@ export default function Home() {
         </a>
         <div className="top-actions">
           <span className={`device-pill ${statusClass}`}><i /> {profileLabel} · {deviceName}</span>
-          <button className="connect-button" onClick={connectMidi}>{connection === "connected" ? "重新扫描" : "连接 PartyKeys"}</button>
+          <button className="connect-button" onClick={() => void connectMidi(true)}>{connectLabel}</button>
         </div>
       </header>
 
@@ -1005,7 +1027,7 @@ export default function Home() {
 
           <div className="side-stack">
             <button aria-label="Microphone">●<small>MIC</small></button>
-            <button className={connection === "connected" ? "side-active" : ""} onClick={connectMidi}>COM<small>{connection === "connected" ? "ON" : "MIDI"}</small></button>
+            <button className={connection === "connected" ? "side-active" : ""} onClick={() => void connectMidi(true)}>COM<small>{connection === "connected" ? "ON" : "MIDI"}</small></button>
           </div>
         </div>
 
