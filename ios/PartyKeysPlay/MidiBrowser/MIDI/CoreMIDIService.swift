@@ -32,6 +32,11 @@ final class CoreMIDIService {
         MIDIOutputPortCreate(client, "Output" as CFString, &outPort)
 
         refresh()
+        // BLE MIDI can publish endpoints slightly before the transport is ready.
+        // Retry discovery after the initial CoreMIDI notification burst settles.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.refresh()
+        }
     }
 
     func stop() {
@@ -94,9 +99,18 @@ final class CoreMIDIService {
     private func connectSource(_ ref: MIDIEndpointRef) {
         guard sourceBoxes[ref] == nil else { return }
         let box = SourceBox(ref)
-        sourceBoxes[ref] = box
         let refcon = Unmanaged.passUnretained(box).toOpaque()
-        MIDIPortConnectSource(inPort, ref, refcon)
+        let status = MIDIPortConnectSource(inPort, ref, refcon)
+        if status == noErr {
+            // Retain the refcon only after CoreMIDI accepted the connection.
+            sourceBoxes[ref] = box
+            print("CoreMIDI input connected ref=\(ref)")
+        } else {
+            // Do not poison the retry path with a source that never connected.
+            sourceBoxes.removeValue(forKey: ref)
+            print("CoreMIDI input connect failed ref=\(ref) status=\(status)")
+            scheduleRefresh()
+        }
     }
 
     private func handle(_ pktList: UnsafePointer<MIDIPacketList>, refcon: UnsafeMutableRawPointer?) {
@@ -104,16 +118,22 @@ final class CoreMIDIService {
               let box = Unmanaged<SourceBox>.fromOpaque(raw).takeUnretainedValue() as SourceBox?,
               let portId = inputMap.id(for: box.ref) else { return }
         let packetCount = Int(pktList.pointee.numPackets)
-        var packet = UnsafeMutablePointer<MIDIPacket>(mutating: withUnsafePointer(to: pktList.pointee.packet) { $0 })
         let now = Date().timeIntervalSince1970 * 1000
-        for i in 0..<packetCount {
-            let length = Int(packet.pointee.length)
-            let bytes = withUnsafeBytes(of: packet.pointee.data) { ptr -> [UInt8] in
-                Array(ptr.prefix(length))
-            }
-            onPacket?(MIDIBatchEntry(portId: portId, bytes: bytes, timestamp: now))
-            if i + 1 < packetCount {
-                packet = UnsafeMutablePointer<MIDIPacket>(mutating: MIDIPacketNext(packet))
+        // Keep the packet pointer inside withUnsafePointer's lifetime. Letting
+        // it escape this closure can produce zero-length packets on device.
+        withUnsafePointer(to: pktList.pointee.packet) { firstPacket in
+            var packet = UnsafeMutablePointer(mutating: firstPacket)
+            for i in 0..<packetCount {
+                let length = Int(packet.pointee.length)
+                let bytes = withUnsafeBytes(of: packet.pointee.data) { ptr -> [UInt8] in
+                    Array(ptr.prefix(length))
+                }
+                if !bytes.isEmpty {
+                    onPacket?(MIDIBatchEntry(portId: portId, bytes: bytes, timestamp: now))
+                }
+                if i + 1 < packetCount {
+                    packet = MIDIPacketNext(packet)
+                }
             }
         }
     }

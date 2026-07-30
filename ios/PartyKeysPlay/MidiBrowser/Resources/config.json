@@ -1,5 +1,5 @@
 {
-  "homeURL": "https://op1.partykeys.ai/?appBuild=3",
+  "homeURL": "https://op1.partykeys.ai/?appBuild=5",
   "allowedOrigins": ["https://op1.partykeys.ai", "https://partykeys-play-lab.vercel.app"],
   "title": "PartyKeys Play",
   "enableSysex": true,

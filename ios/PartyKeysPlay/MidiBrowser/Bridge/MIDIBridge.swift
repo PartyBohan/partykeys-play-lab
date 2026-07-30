@@ -40,7 +40,8 @@ final class MIDIBridge: NSObject, WKScriptMessageHandler {
     private func flush() {
         let entries = batcher.flush()
         guard !entries.isEmpty else { return }
-        print("MIDIBridge deliver count=\(entries.count) first=\(entries.first?.portId ?? "?")")
+        let firstBytes = entries.first?.bytes.map { String(format: "%02X", $0) }.joined(separator: " ") ?? ""
+        print("MIDIBridge deliver count=\(entries.count) first=\(entries.first?.portId ?? "?") bytes=\(firstBytes)")
         let payload = entries.map { entry -> [String: Any] in
             ["id": entry.portId, "data": entry.bytes.map(Int.init), "time": entry.timestamp]
         }

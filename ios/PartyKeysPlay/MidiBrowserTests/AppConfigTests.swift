@@ -4,7 +4,7 @@ import XCTest
 final class AppConfigTests: XCTestCase {
     func test_product_config_is_locked_to_partykeys_play() {
         let cfg = ConfigLoader.load()
-        XCTAssertEqual(cfg.homeURL, URL(string: "https://op1.partykeys.ai/?appBuild=3"))
+        XCTAssertEqual(cfg.homeURL, URL(string: "https://op1.partykeys.ai/?appBuild=5"))
         XCTAssertEqual(cfg.allowedOrigins, [
             "https://op1.partykeys.ai",
             "https://partykeys-play-lab.vercel.app",
