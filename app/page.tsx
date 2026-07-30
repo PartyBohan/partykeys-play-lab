@@ -19,6 +19,7 @@ type LightMode = "palette71" | "rgb15";
 type KeyMode = "poly" | "mono" | "chord";
 type PanelMode = "keys" | "loop" | "fx" | "step" | null;
 type LoopStatus = "idle" | "recording" | "playing";
+type Locale = "zh" | "en";
 type LoopEvent = { type: "on" | "off"; note: number; velocity: number; at: number };
 type Mood = { name: string; english: string; description: string; colors: readonly (readonly [number, number, number])[] };
 type ScalePreset = { name: string; short: string; intervals: readonly number[]; colors: readonly (readonly [number, number, number])[] };
@@ -61,6 +62,15 @@ const SCALE_PRESETS: readonly ScalePreset[] = [
   { name: "大调", short: "MAJOR", intervals: [0, 2, 4, 5, 7, 9, 11], colors: [[38, 124, 210], [62, 166, 228], [82, 204, 220], [72, 188, 158], [100, 176, 242], [130, 214, 220], [164, 224, 250]] },
   { name: "小调", short: "MINOR", intervals: [0, 2, 3, 5, 7, 8, 10], colors: [[82, 42, 142], [114, 60, 180], [152, 76, 190], [92, 106, 202], [132, 82, 206], [186, 98, 190], [124, 118, 224]] },
 ] as const;
+
+const MOOD_EN = [
+  { name: "Warm", description: "Amber · coral · candlelight" },
+  { name: "Vintage", description: "Olive · brass · film" },
+  { name: "Blaze", description: "Crimson · flame · magenta" },
+  { name: "Open", description: "Cyan · sky · lavender" },
+] as const;
+
+const SCALE_EN = ["Blues", "Chinese", "Flamenco", "Jazz", "Dorian", "Arabic", "Japanese", "Major", "Minor"] as const;
 
 function noteLabel(note: number) {
   return `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
@@ -488,6 +498,7 @@ export default function Home() {
   const loopStartRef = useRef(0);
   const runningStatusRef = useRef(new Map<string, number>());
   const [activeNotes, setActiveNotes] = useState(new Set<number>());
+  const [locale, setLocale] = useState<Locale>("zh");
   const [connection, setConnection] = useState<"idle" | "waiting" | "connected" | "unsupported" | "error">("idle");
   const [deviceName, setDeviceName] = useState("未连接");
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile>(null);
@@ -510,6 +521,15 @@ export default function Home() {
   const [stepPattern, setStepPattern] = useState([true, false, false, false, true, false, false, false]);
   const [activeStep, setActiveStep] = useState(-1);
   const [selectedScale, setSelectedScale] = useState<number | null>(null);
+
+  const text = useCallback((zh: string, en: string) => locale === "zh" ? zh : en, [locale]);
+
+  const changeLocale = useCallback((next: Locale) => {
+    setLocale(next);
+    localStorage.setItem("partykeys-locale", next);
+    document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+    setStatusText(next === "zh" ? "语言已切换为中文" : "Language switched to English");
+  }, []);
 
   const send = useCallback((frame: number[]) => {
     if (!outputRef.current || frame.length > 256) return;
@@ -785,6 +805,14 @@ export default function Home() {
 
   useEffect(() => {
     if (!engineRef.current) engineRef.current = new PianoEngine();
+    const savedLocale = localStorage.getItem("partykeys-locale");
+    const initialLocale: Locale = savedLocale === "en" ? "en" : "zh";
+    setLocale(initialLocale);
+    document.documentElement.lang = initialLocale === "zh" ? "zh-CN" : "en";
+    if (initialLocale === "en") {
+      setDeviceName("Not connected");
+      setStatusText("Play any key to begin");
+    }
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
     if (isNativeMidiBrowser()) window.setTimeout(() => void connectMidi(false), 0);
   }, [connectMidi]);
@@ -924,10 +952,10 @@ export default function Home() {
 
   const profileLabel = deviceProfile === "partykeys36" ? "PK36" : deviceProfile === "popupiano29" ? "PP29" : "MIDI";
   const connectLabel = connection === "connected"
-    ? "重新扫描设备"
+    ? text("重新扫描设备", "Rescan devices")
     : isNativeMidiBrowser()
-      ? "请点右下角“连接 MIDI 设备”"
-      : "连接 PartyKeys";
+      ? text("请点右下角“连接 MIDI 设备”", "Use “Connect MIDI Device” below")
+      : text("连接音乐密码", "Connect PartyKeys");
   const statusClass = connection === "connected" ? "connected" : connection === "error" || connection === "unsupported" ? "error" : "";
   const blackPositions = useMemo(() => {
     return BLACK_NOTES.map((note) => {
@@ -956,11 +984,11 @@ export default function Home() {
       {panel === "keys" && (
         <div className="key-mode-options">
           {([
-            ["poly", "主音", "正常复音"],
-            ["mono", "旋律单音", "后音切前音"],
-            ["chord", "和弦", "单键三和弦"],
+            ["poly", text("主音", "Poly"), text("正常复音", "Full polyphony")],
+            ["mono", text("旋律单音", "Mono"), text("后音切前音", "New note cuts old")],
+            ["chord", text("和弦", "Chord"), text("单键三和弦", "One-key triad")],
           ] as const).map(([value, name, hint]) => (
-            <button key={value} className={keyMode === value ? "panel-active" : ""} onClick={() => { setKeyMode(value); setStatusText(`${name}模式 · ${hint}`); }}>
+            <button key={value} className={keyMode === value ? "panel-active" : ""} onClick={() => { setKeyMode(value); setStatusText(`${name} · ${hint}`); }}>
               <b>{name}</b><small>{hint}</small>
             </button>
           ))}
@@ -974,25 +1002,25 @@ export default function Home() {
             <span style={{ width: `${loopProgress * 100}%` }} />
           </div>
           <div className="panel-actions">
-            <button onClick={startLoopRecording}>{loopStatus === "recording" ? "重新录制" : "录制 8 拍"}</button>
-            <button onClick={() => stopLoop(false)}>停止</button>
-            <button onClick={() => stopLoop(true)}>清空</button>
+            <button onClick={startLoopRecording}>{loopStatus === "recording" ? text("重新录制", "RETAKE") : text("录制 8 拍", "RECORD 8")}</button>
+            <button onClick={() => stopLoop(false)}>{text("停止", "STOP")}</button>
+            <button onClick={() => stopLoop(true)}>{text("清空", "CLEAR")}</button>
           </div>
         </div>
       )}
       {panel === "fx" && (
         <div className="fx-panel">
-          {[["混响", reverb, setReverb], ["延迟", delay, setDelay], ["反馈", feedback, setFeedback]].map(([name, value, setter]) => (
+          {[[text("混响", "REVERB"), reverb, setReverb], [text("延迟", "DELAY"), delay, setDelay], [text("反馈", "FEEDBACK"), feedback, setFeedback]].map(([name, value, setter]) => (
             <label key={name as string}><span>{name as string}</span><input type="range" min="0" max="100" value={value as number} onChange={(event) => (setter as (value: number) => void)(Number(event.target.value))} /><b>{value as number}</b></label>
           ))}
         </div>
       )}
       {panel === "step" && (
         <div className="step-panel">
-          <button className={stepMode === "metronome" ? "panel-active" : ""} onClick={() => setStepMode("metronome")}><b>节拍提示</b><small>滴 · 答 · 答 · 答</small></button>
-          <button className={stepMode === "sequencer" ? "panel-active" : ""} onClick={() => setStepMode("sequencer")}><b>八步音序</b><small>亮起的步会发声</small></button>
+          <button className={stepMode === "metronome" ? "panel-active" : ""} onClick={() => setStepMode("metronome")}><b>{text("节拍提示", "METRONOME")}</b><small>{text("滴 · 答 · 答 · 答", "Tick · tock · tock · tock")}</small></button>
+          <button className={stepMode === "sequencer" ? "panel-active" : ""} onClick={() => setStepMode("sequencer")}><b>{text("八步音序", "8-STEP")}</b><small>{text("亮起的步会发声", "Lit steps play")}</small></button>
           <div><button onClick={() => setBpm((value) => Math.max(50, value - 2))}>−</button><strong>{bpm} BPM</strong><button onClick={() => setBpm((value) => Math.min(180, value + 2))}>＋</button></div>
-          <button className={`step-run ${playing ? "panel-active" : ""}`} onClick={() => setPlaying((value) => !value)}>{playing ? "暂停节拍" : "开始节拍"}</button>
+          <button className={`step-run ${playing ? "panel-active" : ""}`} onClick={() => setPlaying((value) => !value)}>{playing ? text("暂停节拍", "PAUSE") : text("开始节拍", "START")}</button>
         </div>
       )}
     </div>
@@ -1001,13 +1029,19 @@ export default function Home() {
   return (
     <main className="app-shell" style={{ "--mood": `rgb(${mood.colors[2].join(",")})`, "--mood-soft": `rgba(${mood.colors[2].join(",")},.45)` } as React.CSSProperties}>
       <header className="topbar">
-        <div className="window-dots" aria-hidden="true"><i /><i /><i /></div>
+        <div className="locale-tools">
+          <span className="signal-mark" aria-hidden="true"><i /><i /><i /><i /></span>
+          <div className="locale-switch" role="group" aria-label={text("语言切换", "Language selector")}>
+            <button className={locale === "zh" ? "active" : ""} aria-pressed={locale === "zh"} onClick={() => changeLocale("zh")}>中</button>
+            <button className={locale === "en" ? "active" : ""} aria-pressed={locale === "en"} onClick={() => changeLocale("en")}>EN</button>
+          </div>
+        </div>
         <a className="wordmark" href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">
           <Image className="brand-logo" src="/brand-logo.png" alt="PartyKeys" width={32} height={32} priority />
-          <span><b>PARTYKEYS</b><small>PLAY LAB</small></span>
+          <span><b>{locale === "zh" ? "音乐密码" : "PARTYKEYS"}</b><small>PLAY LAB</small></span>
         </a>
         <div className="top-actions">
-          <span className={`device-pill ${statusClass}`}><i /> {profileLabel} · {deviceName}</span>
+          <span className={`device-pill ${statusClass}`}><i /> {profileLabel} · {locale === "en" && deviceName === "未连接" ? "Not connected" : deviceName}</span>
           <button className="connect-button" onClick={() => void connectMidi(true)}>{connectLabel}</button>
         </div>
       </header>
@@ -1021,37 +1055,37 @@ export default function Home() {
           <WaveDisplay activeNotes={activeNotes} bpm={bpm} mood={mood} keyMode={keyMode} engineRef={engineRef} />
 
           <div className="knob-row">
-            <Knob label="音色" value={tone} color="#61d9aa" onChange={setTone} />
-            <Knob label="混响" value={reverb} color="#62c8e6" onChange={setReverb} />
-            <Knob label="延迟" value={delay} color="#f1b671" onChange={setDelay} />
-            <Knob label="音量" value={volume} color="#ff758a" onChange={setVolume} />
+            <Knob label={text("音色", "TONE")} value={tone} color="#61d9aa" onChange={setTone} />
+            <Knob label={text("混响", "REVERB")} value={reverb} color="#62c8e6" onChange={setReverb} />
+            <Knob label={text("延迟", "DELAY")} value={delay} color="#f1b671" onChange={setDelay} />
+            <Knob label={text("音量", "MASTER")} value={volume} color="#ff758a" onChange={setVolume} />
           </div>
         </div>
 
         <div className="pad-row">
           <div className="mode-pads">
-            <button className={keyMode === "poly" ? "active-pad" : ""} onClick={() => { setKeyMode("poly"); setStatusText("正常演奏模式"); }}><span>●</span><small>正常演奏</small></button>
-            <button className={keyMode === "mono" ? "active-pad" : ""} onClick={() => { setKeyMode("mono"); setStatusText("单音旋律模式"); }}><span>⌁</span><small>单音旋律</small></button>
-            <button className={keyMode === "chord" ? "active-pad" : ""} onClick={() => { setKeyMode("chord"); setStatusText("单键和弦模式"); }}><span>✣</span><small>单键和弦</small></button>
+            <button className={keyMode === "poly" ? "active-pad" : ""} onClick={() => { setKeyMode("poly"); setStatusText(text("正常演奏模式", "Polyphonic play mode")); }}><span>●</span><small>{text("正常演奏", "POLY")}</small></button>
+            <button className={keyMode === "mono" ? "active-pad" : ""} onClick={() => { setKeyMode("mono"); setStatusText(text("单音旋律模式", "Monophonic melody mode")); }}><span>⌁</span><small>{text("单音旋律", "MONO")}</small></button>
+            <button className={keyMode === "chord" ? "active-pad" : ""} onClick={() => { setKeyMode("chord"); setStatusText(text("单键和弦模式", "One-key chord mode")); }}><span>✣</span><small>{text("单键和弦", "CHORD")}</small></button>
           </div>
           <div className="sound-pads">
-            {MOODS.map((item, index) => <button key={item.name} className={moodIndex === index ? "selected" : ""} style={{ "--pad-color": `rgb(${item.colors[2].join(",")})` } as React.CSSProperties} onClick={() => { setMoodIndex(index); setStatusText(`${item.name}配色 · ${item.description}`); }}><b>{item.name}</b><small>{item.english}</small></button>)}
+            {MOODS.map((item, index) => <button key={item.name} className={moodIndex === index ? "selected" : ""} style={{ "--pad-color": `rgb(${item.colors[2].join(",")})` } as React.CSSProperties} onClick={() => { setMoodIndex(index); setStatusText(locale === "zh" ? `${item.name}配色 · ${item.description}` : `${MOOD_EN[index].name} palette · ${MOOD_EN[index].description}`); }}><b>{locale === "zh" ? item.name : MOOD_EN[index].name}</b><small>{item.english}</small></button>)}
           </div>
           <div className="step-pads">
             {Array.from({ length: 8 }, (_, index) => <button key={index} aria-label={`第 ${index + 1} 拍${stepPattern[index] ? "，已开启" : "，已关闭"}`} className={`${stepPattern[index] ? "armed" : ""} ${playing && activeStep === index ? "step-on" : ""}`} onClick={() => setStepPattern((pattern) => pattern.map((value, candidate) => candidate === index ? !value : value))}><b>{index + 1}</b>{playing && activeStep === index ? <small>播放</small> : null}</button>)}
           </div>
-          <button className={`more-button ${playing ? "step-playing" : ""}`} onClick={() => { setStepMode("sequencer"); setPlaying((value) => !value); setStatusText(playing ? "八步节拍已暂停" : "八步节拍播放中"); }}><b>{playing ? "Ⅱ" : "▶"}</b><small>{playing ? "暂停" : "开始"}</small></button>
+          <button className={`more-button ${playing ? "step-playing" : ""}`} onClick={() => { setStepMode("sequencer"); setPlaying((value) => !value); setStatusText(playing ? text("八步节拍已暂停", "8-step pattern paused") : text("八步节拍播放中", "8-step pattern playing")); }}><b>{playing ? "Ⅱ" : "▶"}</b><small>{playing ? text("暂停", "PAUSE") : text("开始", "START")}</small></button>
         </div>
 
         <div className="lower-deck">
           <aside className="transport scale-bank" aria-label="音阶灯光预设">
             <div className="scale-grid">
-              {SCALE_PRESETS.map((preset, index) => <button key={preset.name} className={selectedScale === index ? "scale-selected" : ""} style={{ "--scale-a": `rgb(${preset.colors[0].join(",")})`, "--scale-b": `rgb(${preset.colors[preset.colors.length - 1].join(",")})` } as React.CSSProperties} onClick={() => applyScaleGuide(index)}><b>{preset.name}</b><small>{preset.short}</small></button>)}
+              {SCALE_PRESETS.map((preset, index) => <button key={preset.name} className={selectedScale === index ? "scale-selected" : ""} style={{ "--scale-a": `rgb(${preset.colors[0].join(",")})`, "--scale-b": `rgb(${preset.colors[preset.colors.length - 1].join(",")})` } as React.CSSProperties} onClick={() => applyScaleGuide(index)}><b>{locale === "zh" ? preset.name : SCALE_EN[index]}</b><small>{preset.short}</small></button>)}
             </div>
           </aside>
 
           <div className="keyboard-wrap">
-            <div className="keyboard-guide"><span><i className="guide-dot" />音阶提示</span><span><i className="press-dot" />按下反馈</span><strong>36 KEYS · C3–B5</strong><b>{connection === "connected" ? "实体琴灯光已同步" : "连接后同步实体琴灯光"}</b></div>
+            <div className="keyboard-guide"><span><i className="guide-dot" />{text("音阶提示", "Scale guide")}</span><span><i className="press-dot" />{text("按下反馈", "Key feedback")}</span><strong>36 KEYS · C3–B5</strong><b>{connection === "connected" ? text("实体琴灯光已同步", "Hardware lights synced") : text("连接后同步实体琴灯光", "Connect to sync lights")}</b></div>
             <div className="keyboard" role="group" aria-label="36-key piano keyboard">
               <div className="white-keys">
                 {WHITE_NOTES.map((note) => <button key={note} aria-label={noteLabel(note)} className={`${activeNotes.has(note) ? "pressed" : ""} ${scaleGuide.has(note) ? "guided" : ""}`} style={scaleGuide.has(note) ? { "--guide": scaleGuide.get(note) } as React.CSSProperties : undefined} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); noteOn(note); }} onPointerUp={() => noteOff(note)} onPointerCancel={() => noteOff(note)}><span>{note % 12 === 0 ? noteLabel(note) : ""}</span></button>)}
@@ -1066,8 +1100,8 @@ export default function Home() {
 
       <footer className="statusbar">
         <span className={`live-dot ${statusClass}`}><i /> {statusText}</span>
-        <span>四层 Salamander C5 音源 · CC64 踏板 · Web MIDI / MidiBrowser</span>
-        <span className="legal-links"><a href="/privacy">隐私政策</a><a href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">Foundation ↗</a></span>
+        <span>{text("四层 Salamander C5 音源 · CC64 踏板 · Web MIDI / MidiBrowser", "4-layer Salamander C5 · CC64 pedal · Web MIDI / MidiBrowser")}</span>
+        <span className="legal-links"><a href="/privacy">{text("隐私政策", "Privacy")}</a><a href="https://foundation.partykeys.ai" target="_blank" rel="noreferrer">Foundation ↗</a></span>
       </footer>
     </main>
   );
