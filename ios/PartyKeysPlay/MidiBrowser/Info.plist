@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>PartyKeys Play 使用蓝牙连接 MIDI 键盘进行演奏和灯光同步。</string>
 	<key>UILSBluetoothAlwaysUsageDescription</key>
