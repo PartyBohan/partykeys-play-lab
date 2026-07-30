@@ -31,7 +31,7 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate {
             injectPolyfill(into: cc)
         }
         if config.opensHomeOnLaunch {
-            webView.load(URLRequest(url: config.homeURL))
+            loadFresh(config.homeURL)
         }
     }
 
@@ -40,7 +40,19 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate {
 
     /// Load an arbitrary URL (from the address bar).
     func load(_ url: URL) {
-        webView.load(URLRequest(url: url))
+        loadFresh(url)
+    }
+
+    /// The product UI is web-delivered. Always validate the first navigation
+    /// against production so an older WKWebView/Service Worker cache cannot
+    /// keep a released native shell on a stale interface.
+    private func loadFresh(_ url: URL) {
+        let request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 30
+        )
+        webView.load(request)
     }
 
     func webView(_ wv: WKWebView, didCommit navigation: WKNavigation!) {
