@@ -43,3 +43,9 @@ xcodebuild \
 - 真机：BLE MIDI、USB MIDI、PartyKeys/PopuPiano 灯光、重连与约 200 ms 灯光延迟必须在发布前复测。
 
 钢琴采样署名见 `AUDIO_CREDITS.md`。
+
+## 开源许可
+
+- 项目代码采用 [MIT License](LICENSE)。
+- `public/samples/` 中的 Salamander Grand Piano V3 采样继续遵循 CC BY 3.0，详见 `AUDIO_CREDITS.md`。
+- PartyKeys / 音乐密码名称、Logo 和其他品牌标识不因代码开源而转让商标权。
