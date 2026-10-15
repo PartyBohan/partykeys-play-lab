@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { disableNativeSampler, initPopuDisplay, isPopuWebview, navigateBack, resolveBackEntry } from "./popu";
 
 type MidiEvent = {
   type: "on" | "off" | "pedal";
@@ -79,7 +80,8 @@ function noteLabel(note: number) {
 function isNativeMidiBrowser() {
   if (typeof window === "undefined") return false;
   const midiWindow = window as MidiBrowserWindow;
-  return Boolean(midiWindow.webkit?.messageHandlers?.midiBridge && midiWindow.__webMIDIBridge);
+  if (midiWindow.webkit?.messageHandlers?.midiBridge && midiWindow.__webMIDIBridge) return true;
+  return isPopuWebview();
 }
 
 function sampleName(note: number) {
@@ -346,15 +348,48 @@ class PianoEngine {
   }
 }
 
+// Finger travel (px) that sweeps the knob from 0 to 100.
+const KNOB_DRAG_RANGE = 150;
+
+// Press anywhere on the cell, then drag up/down (relative — no jump on touch).
+// A magnified copy shows mid-screen while dragging so the finger never hides it.
+// The hidden range input stays for keyboard and screen-reader control only.
 function Knob({ label, value, color, onChange }: { label: string; value: number; color: string; onChange: (value: number) => void }) {
+  const dragRef = useRef<{ y: number; value: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const knobStyle = { "--turn": `${-132 + value * 2.64}deg`, "--accent": color } as React.CSSProperties;
+  const shown = String(value).padStart(2, "0");
+  const endDrag = () => { dragRef.current = null; setDragging(false); };
   return (
-    <label className="knob-cell">
-      <span className="knob" style={{ "--turn": `${-132 + value * 2.64}deg`, "--accent": color } as React.CSSProperties}>
+    <label
+      className="knob-cell"
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dragRef.current = { y: event.clientY, value };
+        setDragging(true);
+      }}
+      onPointerMove={(event) => {
+        const start = dragRef.current;
+        if (!start) return;
+        const next = Math.round(Math.min(100, Math.max(0, start.value + ((start.y - event.clientY) * 100) / KNOB_DRAG_RANGE)));
+        if (next !== value) onChange(next);
+      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      <span className="knob" style={knobStyle}>
         <span className="knob-mark" />
       </span>
       <input aria-label={label} type="range" min="0" max="100" value={value} onChange={(event) => onChange(Number(event.target.value))} />
       <span className="knob-label">{label}</span>
-      <strong>{String(value).padStart(2, "0")}</strong>
+      <strong>{shown}</strong>
+      {dragging ? (
+        <span className="knob-zoom" style={knobStyle} aria-hidden="true">
+          <b>{label}</b>
+          <span className="knob"><span className="knob-mark" /></span>
+          <strong>{shown}</strong>
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -504,6 +539,8 @@ export default function Home() {
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile>(null);
   const [lightMode] = useState<LightMode>("rgb15");
   const [statusText, setStatusText] = useState("点击任意琴键开始");
+  const [appBluetooth, setAppBluetooth] = useState(false);
+  const [backEntry, setBackEntry] = useState<{ referrer: string } | null>(null);
   const [volume, setVolume] = useState(76);
   const [tone, setTone] = useState(54);
   const [bpm, setBpm] = useState(120);
@@ -520,6 +557,7 @@ export default function Home() {
   const [stepMode, setStepMode] = useState<"metronome" | "sequencer">("metronome");
   const [stepPattern, setStepPattern] = useState([true, false, false, false, true, false, false, false]);
   const [activeStep, setActiveStep] = useState(-1);
+  const [portraitDismissed, setPortraitDismissed] = useState(true);
   const [selectedScale, setSelectedScale] = useState<number | null>(null);
 
   const text = useCallback((zh: string, en: string) => locale === "zh" ? zh : en, [locale]);
@@ -592,7 +630,7 @@ export default function Home() {
 
     if (!profileRef.current || !outputRef.current) {
       setStatusText(isNativeMidiBrowser()
-        ? `${preset.name}音阶已选择 · 请点右下角“连接 MIDI 设备”，连接后灯光会自动同步`
+        ? `${preset.name}音阶已选择 · 请点“App 蓝牙连接”，连接后灯光会自动同步`
         : `${preset.name}音阶已选择 · 连接 PartyKeys 后灯光会自动同步`);
       return;
     }
@@ -755,7 +793,7 @@ export default function Home() {
     } else {
       setConnection("waiting");
       setDeviceName("等待设备");
-      setStatusText(isNativeMidiBrowser() ? "请在底部点“连接 MIDI 设备”完成蓝牙配对" : "请连接 USB/BLE MIDI，页面会自动发现");
+      setStatusText(isNativeMidiBrowser() ? "请点“App 蓝牙连接”完成蓝牙配对" : "请连接 USB/BLE MIDI，页面会自动发现");
     }
   }, [applyScaleGuide, initLights, parseMidiPacket]);
 
@@ -814,8 +852,29 @@ export default function Home() {
       setStatusText("Play any key to begin");
     }
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
-    if (isNativeMidiBrowser()) window.setTimeout(() => void connectMidi(false), 0);
-  }, [connectMidi]);
+    // Portrait phones: recommend landscape once per device (dismissable).
+    try { setPortraitDismissed(localStorage.getItem("partykeys-portrait-ok") === "1"); } catch { /* storage unavailable */ }
+    initPopuDisplay();
+    // The sampler bridge only exists inside the app WebView — skip the up-to-15s
+    // retry loop everywhere else (plain browsers logged noise on every open).
+    if (isPopuWebview()) {
+      void disableNativeSampler().then((ok) => {
+        if (ok) setStatusText(document.documentElement.lang === "en" ? "Native sampler off — web audio only" : "原生采样器已禁用 · 网页发声");
+        // App bridges can inject late: re-resolve the back entry once the
+        // sampler handshake finished, so in-app opens get the button too.
+        setBackEntry((prev) => prev ?? resolveBackEntry());
+        setAppBluetooth((prev) => prev || isNativeMidiBrowser());
+      });
+    }
+    setAppBluetooth(isNativeMidiBrowser());
+    const pageHide = () => { allLightsOff(); engineRef.current?.releaseAll(); };
+    window.addEventListener("pagehide", pageHide);
+    setBackEntry(resolveBackEntry());
+    // §5/§9: every page load re-acquires MIDI so devices are picked up
+    // automatically, in the app WebView and in plain mobile browsers alike.
+    window.setTimeout(() => void connectMidi(false), 0);
+    return () => window.removeEventListener("pagehide", pageHide);
+  }, [allLightsOff, connectMidi]);
 
   useEffect(() => {
     lightModeRef.current = lightMode;
@@ -953,9 +1012,7 @@ export default function Home() {
   const profileLabel = deviceProfile === "partykeys36" ? "PK36" : deviceProfile === "popupiano29" ? "PP29" : "MIDI";
   const connectLabel = connection === "connected"
     ? text("重新扫描设备", "Rescan devices")
-    : isNativeMidiBrowser()
-      ? text("请点右下角“连接 MIDI 设备”", "Use “Connect MIDI Device” below")
-      : text("连接音乐密码", "Connect PartyKeys");
+    : text("连接音乐密码", "Connect PartyKeys");
   const statusClass = connection === "connected" ? "connected" : connection === "error" || connection === "unsupported" ? "error" : "";
   const blackPositions = useMemo(() => {
     return BLACK_NOTES.map((note) => {
@@ -1027,9 +1084,22 @@ export default function Home() {
   ) : null;
 
   return (
-    <main className="app-shell" style={{ "--mood": `rgb(${mood.colors[2].join(",")})`, "--mood-soft": `rgba(${mood.colors[2].join(",")},.45)` } as React.CSSProperties}>
+    <main className={`app-shell ${portraitDismissed ? "portrait-enabled" : ""}`} style={{ "--mood": `rgb(${mood.colors[2].join(",")})`, "--mood-soft": `rgba(${mood.colors[2].join(",")},.45)` } as React.CSSProperties}>
+      <div className="portrait-lock">
+        <Image src="/brand-logo.png" alt="PartyKeys" width={66} height={66} priority />
+        <b>{text("横屏弹奏体验更佳", "Play better in landscape")}</b>
+        <span>{text("琴键更宽更好按，竖屏也可完整演奏", "Wider keys in landscape — portrait works too")}</span>
+        <i>↻</i>
+        <button onClick={() => {
+          setPortraitDismissed(true);
+          try { localStorage.setItem("partykeys-portrait-ok", "1"); } catch { /* storage unavailable */ }
+        }}>{text("仍用竖屏", "Keep portrait")}</button>
+      </div>
       <header className="topbar">
         <div className="locale-tools">
+          {backEntry ? (
+            <button className="back-entry" aria-label={text("返回上一页", "Go back")} onClick={() => navigateBack(backEntry.referrer)}>‹ {text("返回", "Back")}</button>
+          ) : null}
           <span className="signal-mark" aria-hidden="true"><i /><i /><i /><i /></span>
           <div className="locale-switch" role="group" aria-label={text("语言切换", "Language selector")}>
             <button className={locale === "zh" ? "active" : ""} aria-pressed={locale === "zh"} onClick={() => changeLocale("zh")}>中</button>
@@ -1042,7 +1112,12 @@ export default function Home() {
         </a>
         <div className="top-actions">
           <span className={`device-pill ${statusClass}`}><i /> {profileLabel} · {locale === "en" && deviceName === "未连接" ? "Not connected" : deviceName}</span>
-          <button className="connect-button" onClick={() => void connectMidi(true)}>{connectLabel}</button>
+          {/* In the App, Bluetooth pairing goes through the native panel only. */}
+          {appBluetooth ? (
+            <a className="connect-button app-bluetooth" href="popumidi://action/bluetooth">{text("App 蓝牙连接", "App Bluetooth")}</a>
+          ) : (
+            <button className="connect-button" onClick={() => void connectMidi(true)}>{connectLabel}</button>
+          )}
         </div>
       </header>
 
